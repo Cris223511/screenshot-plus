@@ -1,0 +1,17 @@
+# interfaz gráfica: ventanas, animaciones, bandeja del sistema y temas
+PySide6>=6.7
+
+# captura de pantalla rápida y a resolución nativa, con soporte multimonitor
+mss>=9.0
+
+# procesamiento de imagen: recortes, unión de tramos y exportación
+Pillow>=10.0
+
+# escucha de atajos de teclado globales, aunque la app esté en segundo plano
+pynput>=1.7
+
+# acceso a la api de windows: ventana activa, registro, eventos de scroll
+pywin32>=306
+
+# generación del ejecutable portable, solo hace falta en desarrollo
+pyinstaller>=6.0

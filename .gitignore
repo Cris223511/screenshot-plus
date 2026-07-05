@@ -1,0 +1,22 @@
+# cachés que python genera al ejecutar el código
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# entornos virtuales locales de cada desarrollador
+venv/
+.venv/
+env/
+
+# carpetas y archivos que deja pyinstaller al generar el ejecutable
+build/
+dist/
+*.spec
+
+# configuración personal de los editores
+.vscode/
+.idea/
+
+# archivos temporales propios de windows
+Thumbs.db
+Desktop.ini
