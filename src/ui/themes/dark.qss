@@ -1,0 +1,221 @@
+/* tema oscuro: la misma estructura del claro con la paleta invertida,
+   grises azulados profundos y el acento un punto más luminoso para que
+   contraste bien sobre fondo oscuro */
+
+* {
+    font-family: "Segoe UI", sans-serif;
+    font-size: 13px;
+    color: #d6d9e0;
+}
+
+QWidget#panelPrincipal, QWidget#barraFlotante, QWidget#ventanaScroll {
+    background: #1b202b;
+    border: 1px solid #2a3140;
+    border-radius: 12px;
+}
+
+QDialog, QMessageBox {
+    background: #1b202b;
+}
+
+QToolButton {
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    padding: 6px;
+}
+
+QToolButton:checked {
+    background: #24344f;
+}
+
+QToolButton:pressed {
+    background: #2a3d5e;
+}
+
+/* los botones con menú no muestran la flechita de despliegue; el ícono
+   principal ya cuenta toda la historia */
+QToolButton::menu-indicator {
+    image: none;
+    width: 0;
+}
+
+QPushButton {
+    background: #242b38;
+    border: 1px solid #2f374a;
+    border-radius: 8px;
+    padding: 7px 16px;
+}
+
+QPushButton:hover {
+    background: #2a3242;
+}
+
+QPushButton#primario {
+    background: #2f7df6;
+    color: #ffffff;
+    border: none;
+    font-weight: 600;
+}
+
+QPushButton#primario:hover {
+    background: #4a8ef7;
+}
+
+QLineEdit, QComboBox, QSpinBox, QKeySequenceEdit {
+    background: #151a23;
+    border: 1px solid #2f374a;
+    border-radius: 8px;
+    padding: 6px 10px;
+    selection-background-color: #2f7df6;
+}
+
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QKeySequenceEdit:focus {
+    border-color: #5c9bff;
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+
+QComboBox QAbstractItemView {
+    background: #1b202b;
+    border: 1px solid #2a3140;
+    border-radius: 8px;
+    selection-background-color: #24344f;
+    selection-color: #d6d9e0;
+    outline: none;
+}
+
+QMenu {
+    background: #1b202b;
+    border: 1px solid #2a3140;
+    border-radius: 10px;
+    padding: 6px;
+}
+
+QMenu::item {
+    padding: 7px 26px 7px 12px;
+    border-radius: 6px;
+}
+
+QMenu::item:selected {
+    background: #24344f;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #2a3140;
+    margin: 5px 8px;
+}
+
+QCheckBox {
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 17px;
+    height: 17px;
+    border: 1.5px solid #3a445a;
+    border-radius: 5px;
+    background: #151a23;
+}
+
+QCheckBox::indicator:checked {
+    background: #2f7df6;
+    border-color: #2f7df6;
+    image: url(assets/icons/check.svg);
+}
+
+QSlider::groove:horizontal {
+    height: 4px;
+    background: #2f374a;
+    border-radius: 2px;
+}
+
+QSlider::sub-page:horizontal {
+    background: #5c9bff;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    width: 14px;
+    height: 14px;
+    margin: -5px 0;
+    background: #1b202b;
+    border: 1.5px solid #5c9bff;
+    border-radius: 7px;
+}
+
+QListWidget {
+    background: #1b202b;
+    border: 1px solid #2a3140;
+    border-radius: 10px;
+    outline: none;
+    padding: 4px;
+}
+
+QListWidget::item {
+    padding: 9px 12px;
+    border-radius: 8px;
+}
+
+QListWidget::item:selected {
+    background: #24344f;
+    color: #d6d9e0;
+}
+
+QTabWidget::pane {
+    border: none;
+}
+
+QTabBar::tab {
+    background: transparent;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin-right: 4px;
+}
+
+QTabBar::tab:selected {
+    background: #24344f;
+    color: #5c9bff;
+    font-weight: 600;
+}
+
+QTextBrowser {
+    background: #1b202b;
+    border: none;
+}
+
+QToolTip {
+    background: #d6d9e0;
+    color: #1b202b;
+    border: 1px solid #aab1c2;
+    padding: 5px 9px;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical {
+    background: #3a445a;
+    border-radius: 4px;
+    min-height: 30px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QLabel#titulo {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+QLabel#secundario {
+    color: #8b93a7;
+}

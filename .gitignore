@@ -13,6 +13,9 @@ build/
 dist/
 *.spec
 
+# el ícono se genera desde el logo durante el build, no hace falta versionarlo
+assets/logo/logo.ico
+
 # configuración personal de los editores
 .vscode/
 .idea/
