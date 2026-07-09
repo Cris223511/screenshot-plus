@@ -12,7 +12,8 @@ from PySide6.QtWidgets import QDialog, QLabel, QListWidget, QListWidgetItem, QVB
 
 from src.i18n.translator import LANGUAGES, t, translator
 
-# franjas de cada bandera: orientación y lista de (color, proporción)
+# franjas de cada bandera: orientación y lista de (color, proporción);
+# algunas llevan dibujo propio (uk, el círculo de japón, la estrella china)
 _BANDERAS = {
     "es": ("h", [("#c60b1e", 1), ("#ffc400", 2), ("#c60b1e", 1)]),
     "en": ("uk", []),
@@ -20,6 +21,9 @@ _BANDERAS = {
     "fr": ("v", [("#0055a4", 1), ("#ffffff", 1), ("#ef4135", 1)]),
     "de": ("h", [("#000000", 1), ("#dd0000", 1), ("#ffce00", 1)]),
     "it": ("v", [("#009246", 1), ("#ffffff", 1), ("#ce2b37", 1)]),
+    "ja": ("ja", []),
+    "zh": ("zh", []),
+    "ru": ("h", [("#ffffff", 1), ("#0039a6", 1), ("#d52b1e", 1)]),
 }
 
 
@@ -35,7 +39,30 @@ def _bandera(codigo: str, ancho: int = 30, alto: int = 20) -> QIcon:
     pintor.setClipPath(camino)
 
     orientacion, franjas = _BANDERAS.get(codigo, ("h", [("#888888", 1)]))
-    if orientacion == "uk":
+    if orientacion == "ja":
+        # el sol naciente: fondo blanco y disco rojo al centro
+        pintor.fillRect(0, 0, ancho * 2, alto * 2, QColor("#ffffff"))
+        pintor.setPen(Qt.NoPen)
+        pintor.setBrush(QColor("#bc002d"))
+        pintor.drawEllipse(QRectF(ancho - alto * 0.6, alto * 0.4, alto * 1.2, alto * 1.2))
+    elif orientacion == "zh":
+        # fondo rojo con la estrella grande dorada; las cuatro chicas no se
+        # distinguen a este tamaño y solo ensuciarían
+        pintor.fillRect(0, 0, ancho * 2, alto * 2, QColor("#de2910"))
+        import math
+        pintor.setPen(Qt.NoPen)
+        pintor.setBrush(QColor("#ffde00"))
+        from PySide6.QtGui import QPolygonF
+        from PySide6.QtCore import QPointF
+        cx, cy, r = ancho * 0.5, alto * 0.75, alto * 0.55
+        puntos = []
+        for i in range(10):
+            angulo = -math.pi / 2 + i * math.pi / 5
+            factor = 1.0 if i % 2 == 0 else 0.4
+            puntos.append(QPointF(cx + math.cos(angulo) * r * factor,
+                                  cy + math.sin(angulo) * r * factor))
+        pintor.drawPolygon(QPolygonF(puntos))
+    elif orientacion == "uk":
         # versión simplificada de la union jack: fondo azul y las cruces
         # blanca y roja, suficiente para reconocerla en tamaño chico
         pintor.fillRect(0, 0, ancho * 2, alto * 2, QColor("#012169"))

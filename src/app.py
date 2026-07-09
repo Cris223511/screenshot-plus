@@ -36,7 +36,8 @@ _ESPERA_OCULTAR = 180
 class ScreenshotApp(QObject):
     def __init__(self):
         super().__init__()
-        self._overlay = None          # referencia viva al overlay activo
+        self._overlay = None          # overlay de captura activo (región, scroll)
+        self._presentacion = None     # el modo presentación, que convive aparte
         self._editor = None           # editor de la captura larga, si está abierto
         self._panel_estaba_visible = False
 
@@ -76,6 +77,7 @@ class ScreenshotApp(QObject):
         w.about_requested.connect(lambda: AboutDialog(self.window).exec())
         w.updates_requested.connect(self._comprobar_actualizaciones)
         w.quit_requested.connect(self.salir)
+        w.minimized_changed.connect(self._sincronizar_minimizado)
 
     def _conectar_bandeja(self):
         self.tray.show_requested.connect(self.mostrar_panel)
@@ -106,9 +108,30 @@ class ScreenshotApp(QObject):
             self.mostrar_panel()
 
     def salir(self):
+        # el hide previo dispara el guardado de la posición del panel,
+        # así la próxima sesión abre donde el usuario lo dejó
+        self.window.hide()
         self.hotkeys.stop()
         self.tray.hide()
         QApplication.quit()
+
+    def _sincronizar_minimizado(self, minimizada: bool):
+        """el panel lateral acompaña la minimización del principal.
+
+        la regla la puso el dueño del producto: al minimizar la app se van
+        los dos paneles, salvo el que tenga su pin puesto. como el botón de
+        minimizar vive en el panel principal, ese siempre se minimiza.
+        """
+        modo = self._presentacion
+        if modo is None:
+            return
+        if minimizada:
+            if not modo.toolbar.is_pinned() and modo.toolbar.isVisible():
+                modo.toolbar.hide()
+                self._lateral_escondido = True
+        elif getattr(self, "_lateral_escondido", False):
+            modo.toolbar.show()
+            self._lateral_escondido = False
 
     # ------------------------------------------------------------------ #
     # capturas
@@ -121,7 +144,10 @@ class ScreenshotApp(QObject):
         sistemas viejos se esconde con una pausa para que el escritorio
         alcance a repintarse sin él.
         """
-        if self._overlay is not None:
+        # una captura a la vez; el panel de presentación abierto no
+        # estorba, salvo que la pantalla esté pausada en la pizarra
+        pausado = self._presentacion is not None and self._presentacion.overlay is not None
+        if self._overlay is not None or pausado:
             return
         self._panel_estaba_visible = self.window.isVisible()
         debe_ocultar = (settings.get("hide_main_on_capture", True)
@@ -141,8 +167,8 @@ class ScreenshotApp(QObject):
     def iniciar_captura_region(self):
         self._ocultar_y(self._abrir_overlay_seleccion)
 
-    def _abrir_overlay_seleccion(self):
-        overlay = SelectionOverlay()
+    def _abrir_overlay_seleccion(self, preset=None):
+        overlay = SelectionOverlay(preset)
         overlay.copied.connect(self._copiar_imagen)
         overlay.save_requested.connect(self._guardar_imagen)
         overlay.closed.connect(self._restaurar_panel)
@@ -152,15 +178,17 @@ class ScreenshotApp(QObject):
         self._overlay = overlay
 
     def capturar_pantalla_completa(self):
-        self._ocultar_y(lambda: self._captura_directa(capture.grab_virtual_screen()))
+        """el mismo editor de siempre, con toda la pantalla ya seleccionada."""
+        self._ocultar_y(lambda: self._abrir_overlay_seleccion("full"))
 
     def capturar_ventana(self):
-        self._ocultar_y(lambda: self._captura_directa(capture.grab_active_window()))
+        """el editor con la ventana activa preseleccionada.
 
-    def _captura_directa(self, imagen):
-        """las capturas sin selección van directo al portapapeles."""
-        self._copiar_imagen(imagen)
-        self._restaurar_panel()
+        el rectángulo se lee antes de abrir el overlay, porque al abrirse
+        el foco pasa a ser nuestro y la ventana activa cambiaría.
+        """
+        zona = capture.active_window_rect()
+        self._ocultar_y(lambda: self._abrir_overlay_seleccion(zona or "full"))
 
     def iniciar_captura_scroll(self):
         self._ocultar_y(self._abrir_captura_scroll)
@@ -188,18 +216,28 @@ class ScreenshotApp(QObject):
     def abrir_modo_zoom(self):
         """abre o cierra el panel de presentación; el mismo atajo alterna.
 
-        la pantalla no se congela: el panel lateral flota sobre el trabajo
-        normal y las herramientas se activan solo cuando se necesitan.
+        el modo vive en su propia referencia y convive con las capturas:
+        con el panel abierto se puede seguir capturando desde los botones,
+        y solo la pantalla pausada bloquea momentáneamente.
         """
-        if isinstance(self._overlay, PresentationMode):
-            self._overlay.close()
+        if self._presentacion is not None:
+            self._presentacion.close()
             return
-        if self._overlay is not None:
-            return
-        self._panel_estaba_visible = self.window.isVisible()
+        # mientras el modo presentación viva, mandan sus atajos alt+letra;
+        # los globales de captura se apagan para que alt+s o alt+z no
+        # disparen dos cosas a la vez, y vuelven al cerrar el panel
+        self.hotkeys.stop()
         modo = PresentationMode()
-        modo.closed.connect(self._restaurar_panel)
-        self._overlay = modo
+        modo.closed.connect(self._cerrar_presentacion)
+        # las capturas hechas desde la pantalla pausada siguen el mismo
+        # camino que cualquier otra: portapapeles o diálogo de guardado
+        modo.copied.connect(self._copiar_imagen)
+        modo.save_requested.connect(self._guardar_imagen)
+        self._presentacion = modo
+
+    def _cerrar_presentacion(self):
+        self._presentacion = None
+        self.hotkeys.restart()
 
     # ------------------------------------------------------------------ #
     # portapapeles y guardado
@@ -209,16 +247,27 @@ class ScreenshotApp(QObject):
             notify(t(aviso), "copy")
 
     def _guardar_imagen(self, imagen):
-        """diálogo de guardar que arranca en la última carpeta usada."""
-        filtros = f'{t("dlg.filter_png")};;{t("dlg.filter_jpg")}'
-        if settings.get("image_format") == "jpeg":
-            filtros = f'{t("dlg.filter_jpg")};;{t("dlg.filter_png")}'
+        """diálogo de guardar que arranca en la última carpeta usada.
+
+        todos los formatos disponibles van en el desplegable del diálogo,
+        con el formato preferido de opciones como primera opción.
+        """
+        disponibles = storage.available_formats()
+        preferido = settings.get("image_format", "png")
+        orden = ([preferido] if preferido in disponibles else []) + \
+            [f for f in disponibles if f != preferido]
+        filtros = ";;".join(f"{clave.upper()} (*.{disponibles[clave][0]})" for clave in orden)
         ruta, _ = QFileDialog.getSaveFileName(None, t("dlg.save_title"),
                                               storage.suggested_path(), filtros)
         if not ruta:
             return
         if storage.save_image(imagen, ruta):
             notify(t("notify.saved", ruta=os.path.basename(ruta)), "save")
+            # si el usuario lo pidió en opciones, el explorador se abre
+            # señalando el archivo recién guardado
+            if settings.get("open_folder_after_save", False):
+                import subprocess
+                subprocess.Popen(["explorer", "/select,", os.path.normpath(ruta)])
         else:
             notify(t("notify.save_error"), "close")
 
@@ -226,11 +275,19 @@ class ScreenshotApp(QObject):
     # diálogos
 
     def abrir_opciones(self):
+        """mientras opciones esté abierto, los atajos globales duermen.
+
+        así escribir una combinación en el editor de atajos no dispara
+        una captura de verdad; al cerrar, el registro se rearma leyendo
+        la configuración fresca, cambios incluidos.
+        """
+        self.hotkeys.stop()
         dialogo = SettingsDialog(self.window)
-        dialogo.shortcuts_changed.connect(self.hotkeys.restart)
-        dialogo.shortcuts_changed.connect(self.window.refresh_tooltips)
-        dialogo.exec()
-        self.window.refresh_tooltips()
+        try:
+            dialogo.exec()
+        finally:
+            self.hotkeys.restart()
+            self.window.refresh_tooltips()
 
     def _comprobar_actualizaciones(self):
         dialogo = AboutDialog(self.window)

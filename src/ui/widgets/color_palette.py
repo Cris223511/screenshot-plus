@@ -7,8 +7,8 @@ el color activo se distingue por un anillo alrededor de la muestra.
 
 from PySide6.QtCore import QRectF, Signal, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
-from PySide6.QtWidgets import (QColorDialog, QHBoxLayout, QPushButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QColorDialog, QGridLayout, QHBoxLayout,
+                               QPushButton, QVBoxLayout, QWidget)
 
 # colores pensados para resaltar sobre capturas: fuertes y distinguibles
 _COLORES = ["#e5484d", "#ff8c00", "#f5d90a", "#30a46c", "#2f7df6", "#8e4ec6", "#111111", "#ffffff"]
@@ -40,19 +40,31 @@ class _Swatch(QPushButton):
 class ColorPalette(QWidget):
     color_selected = Signal(QColor)
 
-    def __init__(self, parent=None, vertical: bool = False):
+    def __init__(self, parent=None, vertical: bool = False, grid_cols: int = 0):
         super().__init__(parent)
-        # en el panel lateral del modo presentación la paleta va en columna;
-        # en las barras horizontales, en fila
-        fila = QVBoxLayout(self) if vertical else QHBoxLayout(self)
+        # tres formas según dónde viva: fila para las barras horizontales,
+        # columna para paneles angostos, o rejilla compacta cuando el panel
+        # lateral anda corto de altura
+        if grid_cols > 0:
+            fila = QGridLayout(self)
+        elif vertical:
+            fila = QVBoxLayout(self)
+        else:
+            fila = QHBoxLayout(self)
         fila.setContentsMargins(2, 0, 2, 0)
         fila.setSpacing(2)
 
+        def agregar(widget, indice):
+            if grid_cols > 0:
+                fila.addWidget(widget, indice // grid_cols, indice % grid_cols)
+            else:
+                fila.addWidget(widget)
+
         self._muestras: list[_Swatch] = []
-        for hexa in _COLORES:
+        for i, hexa in enumerate(_COLORES):
             muestra = _Swatch(hexa)
             muestra.clicked.connect(lambda _=False, m=muestra: self._elegir(m.color, m))
-            fila.addWidget(muestra)
+            agregar(muestra, i)
             self._muestras.append(muestra)
 
         # la última muestra abre el selector del sistema; su circulito va
@@ -60,7 +72,7 @@ class ColorPalette(QWidget):
         self._personalizado = _Swatch("#999999")
         self._personalizado.setToolTip("+")
         self._personalizado.clicked.connect(self._abrir_selector)
-        fila.addWidget(self._personalizado)
+        agregar(self._personalizado, len(_COLORES))
 
         # el rojo arranca activo porque es el color clásico para señalar
         self._muestras[0].activo = True

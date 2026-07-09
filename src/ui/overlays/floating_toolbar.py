@@ -1,54 +1,109 @@
 """panel flotante del modo presentación.
 
-una columna de bordes redondos que aparece pegada al borde derecho de la
-pantalla (y se puede arrastrar a donde sea): zoom en vivo, puntero láser,
-pincel, resaltador, línea, flecha, la paleta de colores, limpiar, el pin
-para fijarlo siempre adelante y el botón de cierre. es una ventana propia,
-independiente del overlay de dibujo, así queda visible aunque no haya
-ninguna herramienta activa y la pantalla siga funcionando normal.
+una columna de bordes redondos pegada al borde derecho (arrastrable desde
+su agarre superior o desde cualquier zona libre, y fijable siempre
+adelante con el pin). cada herramienta muestra su letra de atajo en gris
+chiquito bajo el ícono, al estilo de los editores de pizarra conocidos:
+Z pausa y zoom, V selecciona, H mano, L láser, P pincel, R resaltador,
+I línea, F flecha, E borrador y T texto.
+
+al activar cualquiera, la pantalla se pausa y sobre esa foto se dibuja,
+se edita y se captura; al desactivarla o presionar esc se vuelve al
+escritorio normal. los tooltips están forzados a mostrarse siempre: este
+panel vive por encima de otras aplicaciones y qt, por defecto, se los
+calla cuando la app no tiene el foco.
 """
 
 from PySide6.QtCore import (QEasingCurve, QPoint, QPropertyAnimation, QRectF,
                             QSize, Qt, Signal)
-from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
+from PySide6.QtGui import (QColor, QGuiApplication, QPainter, QPainterPath,
+                           QPen, QRegion)
+from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout, QWidget
 
+from src.config.settings import settings
+from src.core import capture
 from src.i18n.translator import t
 from src.ui.themes.theme_manager import theme
 from src.ui.widgets.animated_button import AnimatedButton
-from src.ui.widgets.color_palette import ColorPalette
 from src.ui.widgets.icons import icon
+
+# letras de fábrica de cada herramienta; el usuario puede cambiarlas en
+# opciones y acá se leen las vigentes
+DEFAULT_KEYS = {"zoom": "Z", "select": "V", "hand": "H", "laser": "L",
+                "brush": "P", "highlight": "R", "line": "I", "arrow": "F",
+                "shape": "S", "eraser": "E", "text": "T"}
+
+
+def board_key(modo: str) -> str:
+    """la letra vigente de una herramienta del panel."""
+    personalizadas = settings.get("board_keys", {})
+    letra = str(personalizadas.get(modo, DEFAULT_KEYS.get(modo, ""))).upper()
+    return letra[:1]
 
 
 class FloatingToolbar(QWidget):
-    zoom_in_clicked = Signal()
-    zoom_out_clicked = Signal()
     mode_changed = Signal(str)
-    color_changed = Signal(QColor)
+    shape_changed = Signal(str)
+    # el re-clic sobre la herramienta ya activa alterna la ventanita de
+    # propiedades, sin apagar nada
+    active_reclicked = Signal()
+    undo_clicked = Signal()
+    redo_clicked = Signal()
     clear_clicked = Signal()
+    capture_clicked = Signal()
+    image_clicked = Signal()
+    props_clicked = Signal()
     exit_clicked = Signal()
+    moved = Signal()
 
     def __init__(self):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setObjectName("barraFlotante")
-        self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self.setAttribute(Qt.WA_AlwaysShowToolTips, True)
         self._arrastre: QPoint | None = None
+        self._activo = "none"
+        self._chip: _RestoreChip | None = None
+        # cada botón registra su ícono para repintarse al cambiar de tema
+        self._recolor: dict = {}
+        theme.theme_changed.connect(self._refrescar_tema)
 
         columna = QVBoxLayout(self)
-        columna.setContentsMargins(6, 10, 6, 10)
+        columna.setContentsMargins(9, 10, 9, 12)
         columna.setSpacing(2)
+
+        # el agarre de arriba invita a mover el panel; en realidad todo el
+        # fondo arrastra, pero sin una señal visual nadie lo descubre
+        self._agarre = QLabel()
+        self._agarre.setPixmap(icon("grip", theme.icon_color()).pixmap(QSize(18, 18)))
+        self._agarre.setAlignment(Qt.AlignCenter)
+        self._agarre.setToolTip(t("zoom.drag"))
+        self._agarre.setCursor(Qt.SizeAllCursor)
+        columna.addWidget(self._agarre)
 
         self._modos: dict[str, AnimatedButton] = {}
 
-        def boton(nombre_icono: str, tooltip: str, marcable: bool = False) -> AnimatedButton:
+        def boton(nombre_icono: str, tooltip: str, letra: str = "",
+                  marcable: bool = False) -> AnimatedButton:
             b = AnimatedButton()
             b.setIcon(icon(nombre_icono, theme.icon_color()))
-            b.setIconSize(QSize(20, 20))
+            b.setIconSize(QSize(19, 19))
             b.setToolTip(tooltip)
             b.setCheckable(marcable)
             b.setCursor(Qt.PointingHandCursor)
+            self._recolor[b] = nombre_icono
+            if letra:
+                # la letra del atajo va en gris bajo el ícono; el tooltip
+                # aclara que dentro de la pizarra basta la letra y que
+                # desde cualquier otra ventana funciona alt más la letra
+                b.setText(letra)
+                b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+                b.setToolTip(f"{tooltip}  ({letra} · Alt+{letra})")
+            else:
+                # los botones de acción (deshacer, rehacer, imagen...) no
+                # llevan letra; un mínimo más generoso los separa y les da
+                # aire para que no queden apretados entre sí
+                b.setMinimumSize(38, 32)
             columna.addWidget(b, 0, Qt.AlignHCenter)
             return b
 
@@ -58,38 +113,79 @@ class FloatingToolbar(QWidget):
             linea.setStyleSheet("color: rgba(128,128,128,60);")
             columna.addWidget(linea)
 
-        self._modos["zoom"] = boton("zoom", t("zoom.live") + "  (Z)", True)
-        acercar = boton("zoom-in", t("zoom.in") + "  (+)")
-        alejar = boton("zoom-out", t("zoom.out") + "  (-)")
+        # arriba las herramientas de navegación (zoom, selección, mano) y
+        # abajo las de dibujo en el orden que pidió el dueño: borrador,
+        # lápiz, línea, flecha, figura, texto, resaltador y láser
+        self._modos["zoom"] = boton("zoom", t("zoom.live"), board_key("zoom"), True)
+        self._modos["select"] = boton("select", t("tool.select"), board_key("select"), True)
+        self._modos["hand"] = boton("hand", t("zoom.hand"), board_key("hand"), True)
         separador()
-        self._modos["laser"] = boton("laser", t("zoom.laser") + "  (L)", True)
-        self._modos["brush"] = boton("brush", t("zoom.brush") + "  (P)", True)
-        self._modos["highlight"] = boton("highlighter", t("zoom.highlight") + "  (R)", True)
-        self._modos["line"] = boton("line", t("tool.line") + "  (I)", True)
-        self._modos["arrow"] = boton("arrow", t("tool.arrow") + "  (F)", True)
+        self._modos["eraser"] = boton("eraser", t("tool.eraser"), board_key("eraser"), True)
+        self._modos["brush"] = boton("brush", t("zoom.brush"), board_key("brush"), True)
+        self._modos["line"] = boton("line", t("tool.line"), board_key("line"), True)
+        self._modos["arrow"] = boton("arrow", t("tool.arrow"), board_key("arrow"), True)
+        self._modos["shape"] = boton("shape-rect", t("tool.shapes"), board_key("shape"), True)
+        self._menu_formas(self._modos["shape"])
+        self._modos["text"] = boton("text", t("tool.text"), board_key("text"), True)
+        self._modos["highlight"] = boton("highlighter", t("zoom.highlight"), board_key("highlight"), True)
+        self._modos["laser"] = boton("laser", t("zoom.laser"), board_key("laser"), True)
+        separador()
+        columna.addSpacing(2)
+        deshacer = boton("undo", t("tool.undo") + "  (Ctrl+Z)")
+        columna.addSpacing(3)
+        rehacer = boton("redo", t("tool.redo") + "  (Ctrl+Y)")
+        columna.addSpacing(3)
         limpiar = boton("clear", t("zoom.clear") + "  (C)")
+        columna.addSpacing(3)
+        capturar = boton("camera", t("zoom.capture"))
+        columna.addSpacing(3)
+        imagen = boton("image", t("tool.image"))
+        columna.addSpacing(2)
         separador()
-
-        # la paleta en vertical acompaña la forma del panel
-        self._paleta = ColorPalette(vertical=True)
-        self._paleta.color_selected.connect(self.color_changed)
-        columna.addWidget(self._paleta, 0, Qt.AlignHCenter)
-
-        separador()
-        self._pin = boton("pin", t("zoom.pin"), True)
-        self._pin.setChecked(True)
+        minimizar = boton("minimize", t("main.tip_minimize"))
         salir = boton("exit", t("zoom.exit") + "  (Esc)")
 
-        acercar.clicked.connect(self.zoom_in_clicked)
-        alejar.clicked.connect(self.zoom_out_clicked)
+        deshacer.clicked.connect(self.undo_clicked)
+        rehacer.clicked.connect(self.redo_clicked)
         limpiar.clicked.connect(self.clear_clicked)
+        capturar.clicked.connect(self.capture_clicked)
+        imagen.clicked.connect(self.image_clicked)
+        minimizar.clicked.connect(self.minimizar)
         salir.clicked.connect(self.exit_clicked)
-        self._pin.toggled.connect(self._alternar_pin)
         for nombre, b in self._modos.items():
-            b.clicked.connect(lambda _=False, n=nombre: self.set_mode(n))
+            if nombre != "shape":
+                b.clicked.connect(lambda _=False, n=nombre: self.set_mode(n))
 
         self.adjustSize()
         self._acomodar_derecha()
+
+    def _menu_formas(self, boton: AnimatedButton):
+        """el botón de formas despliega las ocho: círculo, cuadrado y compañía."""
+        from PySide6.QtWidgets import QMenu
+        from src.ui.overlays import annotation_tools as an
+        menu = QMenu(self)
+        nombres = {"rect": t("tool.rect"), "rounded": t("tool.rounded"),
+                   "ellipse": t("tool.ellipse"), "triangle": t("tool.triangle"),
+                   "diamond": t("tool.diamond"), "pentagon": t("tool.pentagon"),
+                   "hexagon": t("tool.hexagon"), "star": t("tool.star")}
+        for clave, (icono, _clase) in an.SHAPES.items():
+            accion = menu.addAction(icon(icono, theme.icon_color()), nombres[clave])
+            accion.triggered.connect(lambda _=False, c=clave, i=icono: self._elegir_forma(c, i))
+        boton.setMenu(menu)
+        boton.setPopupMode(AnimatedButton.InstantPopup)
+
+    def _elegir_forma(self, clave: str, icono: str):
+        self._forma_actual = clave
+        self._modos["shape"].setIcon(icon(icono, theme.icon_color()))
+        self._recolor[self._modos["shape"]] = icono
+        self.shape_changed.emit(clave)
+        # elegir la misma forma otra vez no debe contar como re-clic (el
+        # re-clic alterna las propiedades); solo se activa el modo si no
+        # estaba puesto
+        if self._activo != "shape":
+            self.set_mode("shape")
+        else:
+            self.set_checked_silent("shape")
 
     def _acomodar_derecha(self):
         """posición inicial: centrado verticalmente contra el borde derecho."""
@@ -97,42 +193,94 @@ class FloatingToolbar(QWidget):
         self.move(pantalla.right() - self.width() - 16,
                   pantalla.center().y() - self.height() // 2)
 
-    def _alternar_pin(self, fijado: bool):
-        """el pin decide si el panel queda siempre por encima de todo.
+    def minimizar(self):
+        """el panel se recoge en un chip flotante; el chip lo restaura.
 
-        cambiar banderas de ventana en qt la recrea, por eso el show()
-        inmediato: sin él, el panel desaparecería al soltar el pin.
+        es la única forma en que el panel deja de verse: ni las capturas
+        ni el cambio de herramienta lo esconden jamás. al recogerlo, un
+        aviso recuerda que las herramientas siguen a un alt+letra de
+        distancia, que si no nadie lo adivina.
         """
-        self.setWindowFlag(Qt.WindowStaysOnTopHint, fijado)
+        if self._chip is None:
+            self._chip = _RestoreChip(self)
+        self._chip.move(self.x() + (self.width() - self._chip.width()) // 2, self.y())
+        self._chip.show()
+        self.hide()
+        from src.ui.notifications import notify
+        notify(t("zoom.chip_tip"), "panel")
+
+    def restaurar(self):
+        if self._chip is not None:
+            self._chip.hide()
         self.show()
 
     def set_mode(self, nombre: str):
-        """activa un modo; repetirlo lo apaga y vuelve el cursor normal.
+        """activa una herramienta; funcionan como radio, no como toggle.
 
-        el clic del botón llega con el estado ya alternado por qt, así que
-        el botón mismo dice si el modo quedó activo o no; solo hay que
-        apagar a los demás y avisar.
+        volver a clicar la herramienta activa (o repetir su tecla) NO la
+        apaga: la pausa solo se abandona con esc o el botón de salir. esa
+        decisión evita despausar y perder dibujos por un clic de más.
         """
-        activo = self._modos[nombre].isChecked()
         for n, b in self._modos.items():
-            b.setChecked(activo and n == nombre)
-        self.mode_changed.emit(nombre if activo else "none")
+            b.setChecked(n == nombre)
+        if nombre != self._activo:
+            self._activo = nombre
+            self.mode_changed.emit(nombre)
+        else:
+            self.active_reclicked.emit()
 
     def toggle_mode(self, nombre: str):
-        """alternancia desde el teclado, donde el botón no se toca solo."""
-        self._modos[nombre].setChecked(not self._modos[nombre].isChecked())
+        """entrada desde el teclado.
+
+        repetir la letra de la herramienta activa no hace nada, con una
+        excepción útil: repetir la letra de formas va rotando entre las
+        ocho (rectángulo, círculo, rombo...), así se elige figura sin
+        abrir el menú, incluso con el panel minimizado.
+        """
+        if nombre == "shape" and self._activo == "shape":
+            self._siguiente_forma()
+            return
         self.set_mode(nombre)
+
+    def _siguiente_forma(self):
+        from src.ui.overlays import annotation_tools as an
+        claves = list(an.SHAPES)
+        actual = getattr(self, "_forma_actual", "rect")
+        siguiente = claves[(claves.index(actual) + 1) % len(claves)]
+        self._forma_actual = siguiente
+        self._modos["shape"].setIcon(icon(an.SHAPES[siguiente][0], theme.icon_color()))
+        self._recolor[self._modos["shape"]] = an.SHAPES[siguiente][0]
+        self.shape_changed.emit(siguiente)
+
+    def _refrescar_tema(self, _tema: str = ""):
+        """con el cambio de tema, íconos, agarre y fondo se repintan al
+        instante; antes quedaban con los colores del tema anterior."""
+        for boton, nombre in self._recolor.items():
+            boton.setIcon(icon(nombre, theme.icon_color()))
+        self._agarre.setPixmap(icon("grip", theme.icon_color()).pixmap(QSize(18, 18)))
+        self.update()
+        if self._chip is not None:
+            self._chip.update()
 
     def clear_mode(self):
         """apaga todos los modos sin emitir nada; el que llama decide qué sigue."""
         for b in self._modos.values():
             b.setChecked(False)
+        self._activo = "none"
+
+    def set_checked_silent(self, nombre: str):
+        """marca un modo sin emitir; sirve para restaurar el botón cuando
+        el usuario se arrepiente de descartar lo dibujado."""
+        for n, b in self._modos.items():
+            b.setChecked(n == nombre)
+        self._activo = nombre
+
+    def is_pinned(self) -> bool:
+        """el panel vive siempre adelante; el pin dejó de existir."""
+        return True
 
     def current_mode(self) -> str:
-        for nombre, b in self._modos.items():
-            if b.isChecked():
-                return nombre
-        return "none"
+        return self._activo
 
     def paintEvent(self, _):
         """fondo sólido de esquinas redondeadas, pintado a mano igual que
@@ -140,11 +288,31 @@ class FloatingToolbar(QWidget):
         pintor = QPainter(self)
         pintor.setRenderHint(QPainter.Antialiasing)
         camino = QPainterPath()
-        camino.addRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 13, 13)
+        camino.addRoundedRect(QRectF(self.rect()), 9, 9)
         pintor.fillPath(camino, QColor(theme.panel_bg()))
-        pintor.setPen(QColor(theme.panel_border()))
+        # el borde va pintado justo sobre el filo de la máscara: el
+        # recorte sin suavizado queda teñido del color del borde y las
+        # esquinas se ven parejas, a juego con el panel principal
+        pintor.setPen(QPen(QColor(theme.panel_border()), 2.5))
         pintor.drawPath(camino)
         pintor.end()
+
+    def resizeEvent(self, e):
+        # la ventana es opaca a propósito (así windows acepta excluirla de
+        # las capturas); la máscara recorta las esquinas para que se vea
+        # redondeada igual
+        camino = QPainterPath()
+        camino.addRoundedRect(QRectF(self.rect()), 9, 9)
+        self.setMask(QRegion(camino.toFillPolygon().toPolygon()))
+        super().resizeEvent(e)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        # invisible para toda captura: ni la foto congelada de la pizarra
+        # ni las capturas del usuario lo incluyen jamás; y fuera de la
+        # barra de tareas sin el auto-ocultado de qt.tool
+        capture.exclude_from_capture(self)
+        capture.make_tool_window(self)
 
     def fade_in(self):
         self.setWindowOpacity(0.0)
@@ -167,4 +335,69 @@ class FloatingToolbar(QWidget):
             self.move(e.globalPosition().toPoint() - self._arrastre)
 
     def mouseReleaseEvent(self, _):
+        self._arrastre = None
+
+    def moveEvent(self, e):
+        # la ventanita de propiedades acompaña al panel donde vaya
+        self.moved.emit()
+        super().moveEvent(e)
+
+    def closeEvent(self, e):
+        if self._chip is not None:
+            self._chip.close()
+        super().closeEvent(e)
+
+
+class _RestoreChip(QWidget):
+    """botoncito flotante que queda cuando el panel se minimiza."""
+
+    def __init__(self, panel: FloatingToolbar):
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self._panel = panel
+        self._arrastre: QPoint | None = None
+        self._movio = False
+        self.setFixedSize(40, 40)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(t("zoom.chip_tip"))
+
+    def paintEvent(self, _):
+        pintor = QPainter(self)
+        pintor.setRenderHint(QPainter.Antialiasing)
+        camino = QPainterPath()
+        camino.addRoundedRect(QRectF(self.rect()), 9, 9)
+        pintor.fillPath(camino, QColor(theme.panel_bg()))
+        pintor.setPen(QPen(QColor(theme.panel_border()), 2.5))
+        pintor.drawPath(camino)
+        icon("panel", theme.icon_active_color()).paint(pintor, 10, 10, 20, 20)
+        pintor.end()
+
+    def resizeEvent(self, e):
+        camino = QPainterPath()
+        camino.addRoundedRect(QRectF(self.rect()), 9, 9)
+        self.setMask(QRegion(camino.toFillPolygon().toPolygon()))
+        super().resizeEvent(e)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        capture.exclude_from_capture(self)
+        capture.make_tool_window(self)
+
+    # arrastrable como el panel; un clic sin arrastre restaura
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self._arrastre = e.position().toPoint()
+            self._movio = False
+
+    def mouseMoveEvent(self, e):
+        if self._arrastre is not None:
+            destino = e.globalPosition().toPoint() - self._arrastre
+            if (destino - self.pos()).manhattanLength() > 3:
+                self._movio = True
+            self.move(destino)
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.LeftButton and not self._movio:
+            self._panel.move(self.x(), self.y())
+            self._panel.restaurar()
         self._arrastre = None

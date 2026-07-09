@@ -17,6 +17,29 @@ from src.config import paths
 _cache: dict[tuple, QIcon] = {}
 
 
+def rounded_logo(lado: int) -> QPixmap:
+    """el logo recortado en un cuadrado de esquinas redondeadas.
+
+    lo usan el panel principal, el acerca de y el manual, para que la
+    imagen se integre igual en todos lados, sin marcos duros.
+    """
+    original = QPixmap(paths.resource_path(os.path.join("assets", "logo", "logo.jpg")))
+    escalado = original.scaled(lado * 2, lado * 2, Qt.KeepAspectRatioByExpanding,
+                               Qt.SmoothTransformation)
+    salida = QPixmap(lado * 2, lado * 2)
+    salida.fill(Qt.transparent)
+    pintor = QPainter(salida)
+    pintor.setRenderHint(QPainter.Antialiasing)
+    from PySide6.QtGui import QPainterPath
+    mascara = QPainterPath()
+    mascara.addRoundedRect(QRectF(0, 0, lado * 2, lado * 2), lado * 0.55, lado * 0.55)
+    pintor.setClipPath(mascara)
+    pintor.drawPixmap(0, 0, escalado)
+    pintor.end()
+    salida.setDevicePixelRatio(2.0)
+    return salida
+
+
 def icon(nombre: str, color: str, tamano: int = 20) -> QIcon:
     """ícono listo para usar en botones y menús.
 

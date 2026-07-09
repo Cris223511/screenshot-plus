@@ -31,7 +31,7 @@ Taking a screenshot, marking it with an arrow and sending it should not require 
 
 | Version | File | Status |
 | ------- | ---- | ------ |
-| 1.0.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.0.0/ScreenshotPlus.exe) | Available |
+| 1.1.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.1.0/ScreenshotPlus.exe) | Available |
 
 Just download the `.exe` and run it. There is no installer and no extra steps; every version lives in the [releases](https://github.com/Cris223511/screenshot-plus/releases) section.
 
@@ -42,7 +42,7 @@ Just download the `.exe` and run it. There is no installer and no extra steps; e
 ### Capture
 
 - **Region** (Alt + A): the screen freezes, you drag over the area and on release the annotation editor opens. The selection itself can be moved and resized before you decide.
-- **Full screen** (Alt + S) and **active window** (Alt + W): straight to the clipboard, with a notification.
+- **Full screen** (Alt + S) and **active window** (Alt + W): the same editor, with the area preselected automatically; annotate if you want and choose between copying or saving.
 - **Scrolling capture** (Alt + D): you pick the area, the rest of the screen gets locked behind a veil, and as you scroll the app stitches the content into one long image with a live preview. The stitching tolerates visual noise (font smoothing, blinking cursors) and discards repeated frames. When you finish, the image opens in a scrollable editor.
 - Everything is captured at the **monitor's native resolution**, lossless, even with Windows scaling at 125 or 150 %.
 - The app's own panel steps aside when capturing: it never shows up in your shots.
@@ -50,27 +50,32 @@ Just download the `.exe` and run it. There is no installer and no extra steps; e
 ### Annotation editor
 
 - **Shapes** (8): rectangle, rounded rectangle, ellipse, triangle, diamond, pentagon, hexagon and star.
-- **Lines and arrows** with a configurable cap on each end independently (none, arrow, filled arrow, dot, square, diamond) and solid, dashed or dotted stroke.
+- **Lines and arrows** with a configurable cap on each end independently (none, arrow, filled arrow, dot, square, diamond) and five stroke styles (solid, dashed, dotted, dash-dot, dash-dot-dot).
 - **Brush** for free drawing with adjustable thickness.
-- **Text** with 25+ font families in a dropdown, size, bold, italic and color. You type directly on the image; double click reopens an existing text.
-- **Pixelate** to hide emails, numbers or any sensitive data.
-- **Everything stays editable**: any drawn element can be selected, moved, resized by its handles, and restyled (color, thickness, stroke) from the same toolbar, live.
-- Undo (Ctrl + Z), delete element (Del), reset all, copy (Ctrl + C) and save (Ctrl + S).
+- **Text** with every system font, size, bold, italic, underline, strikethrough, letter spacing, rotation, background (solid or rounded with its own color), shadow and outline. One click selects it, double click reopens its content.
+- **Pixelate** to hide sensitive data; **opacity** for any element; and **images** pasted with Ctrl + V.
+- **Everything stays editable**: any drawn element can be selected, moved, resized by its handles, and restyled from the same toolbar, live. It stays selected right after drawing, ready to place.
+- **Design-style modifiers**: Shift straightens lines (15° steps), makes shapes proportional, keeps the ratio when resizing and moves in a straight line; Alt grows from the center; Alt + drag duplicates the element.
+- Undo (Ctrl + Z, moves included), redo (Ctrl + Y), delete element (Del), reset all, copy (Ctrl + C) and save (Ctrl + S).
 
-### Presentation mode
+### Presentation whiteboard
 
-Built for classes and meetings, with the screen **live**: nothing freezes, videos keep playing.
+Built for classes and meetings: a floating side panel that pauses the screen when you need it, turns it into a whiteboard, and hands it back untouched when you leave.
 
-- **Floating side panel** with rounded corners, draggable to any edge and pinnable always on top.
-- **Live zoom** (Z): magnifies what is happening around the cursor, with the wheel or the + and - keys.
-- **Laser pointer** (L) with a fading trail; color, size and trail are configurable in Options.
-- **Brush** (P), **highlighter** (R), **line** (I) and **arrow** (F) to mark over the screen; C clears everything.
+- **Side panel** with visible (and configurable) shortcut letters, draggable to any edge and collapsible into a floating chip.
+- **Tools**: wheel zoom (Z), selection with rubber band and handle editing (V), hand (H), eraser (E), brush (P), line (I), arrow (F), shapes (S, repeat cycles through the eight), text (T), highlighter (R) and laser pointer with configurable trail (L).
+- **Properties popup** beside the panel: colors with recents and hex code, thickness, stroke styles, arrow endpoints, opacity and the full text options; with something selected it loads its values and edits it live, even several at once.
+- **Inserted images** from file or pasted with Ctrl + V, movable and resizable.
+- **With the panel minimized**, each tool responds to Alt + its letter from any window.
+- **Action-based undo and redo**: they also bring back what was erased or cleared.
+- **Built-in capture**: Ctrl + C copies the whole board with drawings, Ctrl + S saves it, and Ctrl + A crops just a piece.
 
 ### Application
 
-- **Global hotkeys** that work even with the app in the tray, all customizable.
-- **6 languages**: Spanish (default), English, Portuguese, French, German and Italian. Switching applies instantly, no restart.
-- **Light and dark themes**, always-on-top pin, custom animated notifications.
+- **Global hotkeys** that work even with the app in the tray, all customizable, muted while a fullscreen game is in front.
+- **9 languages**: Spanish (default), English, Portuguese, French, German, Italian, Japanese, Chinese and Russian. Switching applies instantly, no restart.
+- **14 save formats**: PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO and TGA, with adjustable quality where it applies and an option to open the folder after saving.
+- **Light and dark themes**, always-on-top pin, custom animated notifications and tooltips.
 - **Single instance**: running the `.exe` twice does not duplicate the app, it brings up the one already running.
 - **Start with Windows** and start minimized to the tray, both optional.
 - **Update checking** against this repository's releases, with no servers of its own and no telemetry.

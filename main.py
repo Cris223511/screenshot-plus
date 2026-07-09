@@ -45,6 +45,29 @@ def main() -> int:
     from src.ui.themes.theme_manager import theme
     theme.apply()
 
+    # todos los tooltips de la app salen como burbuja redondeada, al
+    # instante, en lugar del rectángulo tardío de windows
+    from src.ui.widgets import tooltip
+    tooltip.install(aplicacion)
+
+    # los diálogos propios de qt (selector de color, botones estándar)
+    # hablan el idioma de la app cargando las traducciones que qt trae;
+    # sin esto salían en inglés
+    from PySide6.QtCore import QLibraryInfo, QTranslator
+    from src.i18n.translator import translator
+    traductor_qt = QTranslator(aplicacion)
+
+    def instalar_qt(codigo: str):
+        aplicacion.removeTranslator(traductor_qt)
+        especiales = {"zh": "zh_CN"}
+        archivo = f"qtbase_{especiales.get(codigo, codigo)}"
+        ruta = QLibraryInfo.path(QLibraryInfo.TranslationsPath)
+        if traductor_qt.load(archivo, ruta):
+            aplicacion.installTranslator(traductor_qt)
+
+    translator.language_changed.connect(instalar_qt)
+    instalar_qt(translator.language)
+
     # el registro de windows queda alineado con la preferencia guardada,
     # útil cuando el usuario movió el ejecutable de carpeta
     autostart.sync(settings.get("autostart", False))

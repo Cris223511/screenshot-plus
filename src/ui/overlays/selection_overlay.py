@@ -17,7 +17,7 @@ encarga del portapapeles, el diálogo de guardar y las notificaciones.
 """
 
 from PySide6.QtCore import (QEasingCurve, QPointF, QPropertyAnimation, QRect,
-                            QRectF, QSize, Qt, Signal)
+                            QRectF, QSize, Qt, QTimer, Signal)
 from PySide6.QtGui import (QColor, QFont, QGuiApplication, QImage,
                            QKeySequence, QPainter, QPen)
 from PySide6.QtWidgets import (QComboBox, QFrame, QGraphicsOpacityEffect,
@@ -35,14 +35,9 @@ from src.ui.widgets.icons import icon
 # lado de los cuadraditos de agarre, tanto de la selección como de los items
 _LADO_TIRADOR = 8.0
 
-# tipografías que ofrece el desplegable de texto; una selección amplia de
-# las que vienen con windows, sin obligar a nadie a escribir nombres
-FONTS = ["Segoe UI", "Arial", "Verdana", "Tahoma", "Calibri", "Cambria",
-         "Georgia", "Times New Roman", "Trebuchet MS", "Garamond",
-         "Palatino Linotype", "Book Antiqua", "Century Gothic", "Candara",
-         "Constantia", "Corbel", "Franklin Gothic Medium", "Impact",
-         "Comic Sans MS", "Segoe Print", "Segoe Script", "Gabriola",
-         "Courier New", "Consolas", "Lucida Console", "Sitka Text"]
+# el desplegable de texto ofrece todas las tipografías del sistema, las
+# mismas que la pizarra de presentación
+from src.ui.overlays.properties_panel import system_fonts
 
 
 class _Toolbar(QWidget):
@@ -61,11 +56,13 @@ class _Toolbar(QWidget):
     dash_changed = Signal(str)
     cap_start_changed = Signal(str)
     cap_end_changed = Signal(str)
+    opacity_changed = Signal(float)
     font_changed = Signal(str)
     font_size_changed = Signal(int)
     bold_toggled = Signal(bool)
     italic_toggled = Signal(bool)
     undo_clicked = Signal()
+    redo_clicked = Signal()
     clear_clicked = Signal()
     copy_clicked = Signal()
     save_clicked = Signal()
@@ -114,7 +111,8 @@ class _Toolbar(QWidget):
         self._botones["text"] = boton("text", t("tool.text"), True)
         self._botones["pixelate"] = boton("pixelate", t("tool.pixelate"), True)
         separador()
-        deshacer = boton("undo", t("tool.undo"))
+        deshacer = boton("undo", t("tool.undo") + "  (Ctrl+Z)")
+        rehacer = boton("redo", t("tool.redo") + "  (Ctrl+Y)")
         limpiar = boton("clear", t("tool.clear"))
         separador()
         copiar = boton("copy", t("tool.copy") + "  (Ctrl+C)")
@@ -125,6 +123,7 @@ class _Toolbar(QWidget):
             if nombre != "shape":
                 b.clicked.connect(lambda _=False, n=nombre: self.activate(n))
         deshacer.clicked.connect(self.undo_clicked)
+        rehacer.clicked.connect(self.redo_clicked)
         limpiar.clicked.connect(self.clear_clicked)
         copiar.clicked.connect(self.copy_clicked)
         guardar.clicked.connect(self.save_clicked)
@@ -169,11 +168,13 @@ class _Toolbar(QWidget):
         self._grosor.valueChanged.connect(self.width_changed)
         ctx.addWidget(self._grosor)
 
-        # estilo del trazo: continuo, discontinuo o punteado
+        # todos los estilos de trazo del modelo, en el mismo orden
+        nombres_dash = {"solid": t("tool.dash_solid"), "dashed": t("tool.dash_dashed"),
+                        "dotted": t("tool.dash_dotted"), "dashdot": t("tool.dash_dashdot"),
+                        "dashdotdot": t("tool.dash_dashdotdot")}
         self._trazo = QComboBox()
-        for clave, texto in (("solid", t("tool.dash_solid")), ("dashed", t("tool.dash_dashed")),
-                             ("dotted", t("tool.dash_dotted"))):
-            self._trazo.addItem(texto, clave)
+        for clave in an.DASHES:
+            self._trazo.addItem(nombres_dash[clave], clave)
         self._trazo.currentIndexChanged.connect(
             lambda i: self.dash_changed.emit(self._trazo.itemData(i)))
         ctx.addWidget(self._trazo)
@@ -197,9 +198,12 @@ class _Toolbar(QWidget):
         # tipografía en desplegable, cada nombre pintado con su propia letra
         self._fuente = QComboBox()
         self._fuente.setFixedWidth(160)
-        for familia in FONTS:
+        for familia in system_fonts():
             self._fuente.addItem(familia)
             self._fuente.setItemData(self._fuente.count() - 1, QFont(familia), Qt.FontRole)
+        indice_defecto = self._fuente.findText("Segoe UI")
+        if indice_defecto >= 0:
+            self._fuente.setCurrentIndex(indice_defecto)
         self._fuente.currentTextChanged.connect(self.font_changed)
         ctx.addWidget(self._fuente)
 
@@ -209,6 +213,17 @@ class _Toolbar(QWidget):
         self._tamano.setToolTip(t("tool.fontsize"))
         self._tamano.valueChanged.connect(self.font_size_changed)
         ctx.addWidget(self._tamano)
+
+        # opacidad del elemento, de translúcido a sólido
+        self._rotulo_opacidad = QLabel(t("tool.opacity"))
+        self._rotulo_opacidad.setObjectName("secundario")
+        ctx.addWidget(self._rotulo_opacidad)
+        self._opacidad = QSlider(Qt.Horizontal)
+        self._opacidad.setRange(10, 100)
+        self._opacidad.setValue(100)
+        self._opacidad.setFixedWidth(70)
+        self._opacidad.valueChanged.connect(lambda v: self.opacity_changed.emit(v / 100.0))
+        ctx.addWidget(self._opacidad)
 
         self._negrita = AnimatedButton()
         self._negrita.setIcon(icon("bold", theme.icon_color()))
@@ -254,11 +269,14 @@ class _Toolbar(QWidget):
         es_texto = tipo == "text"
         es_pixel = tipo == "pixelate"
 
-        self._contextual.setVisible(es_trazo or es_texto or es_pixel)
-        self._paleta.setVisible(es_trazo or es_texto)
-        self._rotulo_grosor.setVisible(es_trazo or es_pixel)
-        self._grosor.setVisible(es_trazo or es_pixel)
-        self._trazo.setVisible(es_forma or es_lineal)
+        es_imagen = isinstance(item, an.ImageItem)
+        self._contextual.setVisible(es_trazo or es_texto or es_pixel or es_imagen)
+        self._paleta.setVisible((es_trazo or es_texto) and not es_imagen)
+        self._rotulo_grosor.setVisible((es_trazo or es_pixel) and not es_imagen)
+        self._grosor.setVisible((es_trazo or es_pixel) and not es_imagen)
+        self._rotulo_opacidad.setVisible(es_trazo or es_texto or es_imagen)
+        self._opacidad.setVisible(es_trazo or es_texto or es_imagen)
+        self._trazo.setVisible((es_forma or es_lineal) and not es_imagen)
         self._cap_inicio.setVisible(es_lineal)
         self._cap_fin.setVisible(es_lineal)
         self._fuente.setVisible(es_texto)
@@ -268,8 +286,10 @@ class _Toolbar(QWidget):
 
         if item is not None:
             for control in (self._grosor, self._trazo, self._cap_inicio, self._cap_fin,
-                            self._fuente, self._tamano, self._negrita, self._cursiva):
+                            self._fuente, self._tamano, self._negrita, self._cursiva,
+                            self._opacidad):
                 control.blockSignals(True)
+            self._opacidad.setValue(int(item.opacity * 100))
             self._grosor.setValue(int(item.width))
             self._trazo.setCurrentIndex(max(0, self._trazo.findData(item.dash)))
             if isinstance(item, an.LineItem):
@@ -283,7 +303,8 @@ class _Toolbar(QWidget):
                 self._negrita.setChecked(item.font.bold())
                 self._cursiva.setChecked(item.font.italic())
             for control in (self._grosor, self._trazo, self._cap_inicio, self._cap_fin,
-                            self._fuente, self._tamano, self._negrita, self._cursiva):
+                            self._fuente, self._tamano, self._negrita, self._cursiva,
+                            self._opacidad):
                 control.blockSignals(False)
 
         self.adjustSize()
@@ -294,7 +315,15 @@ class SelectionOverlay(QWidget):
     save_requested = Signal(QImage)
     closed = Signal()
 
-    def __init__(self):
+    def __init__(self, preset=None):
+        """preset permite arrancar con la zona ya elegida.
+
+        las capturas de pantalla completa y de ventana activa pasan por el
+        mismo editor que la de región: llegan con "full" o con el
+        rectángulo físico de la ventana, la selección aparece hecha y la
+        barra de herramientas sale de inmediato. el usuario puede ajustar
+        la zona, anotar y decidir si copia o guarda, todo igual.
+        """
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_DeleteOnClose, True)
         self.setMouseTracking(True)
@@ -302,14 +331,30 @@ class SelectionOverlay(QWidget):
         # la foto congelada de todos los monitores, en resolución física
         self._imagen = capture.grab_virtual_screen()
         self._dpr = capture.device_pixel_ratio()
-        self.setGeometry(QGuiApplication.primaryScreen().virtualGeometry())
+        geometria = QGuiApplication.primaryScreen().virtualGeometry()
+        self.setGeometry(geometria)
 
         self._fase = "seleccionando"          # seleccionando | editando
         self._sel = QRectF()
         self._origen: QPointF | None = None
         self._items: list[an.Item] = []
+        self._rehechos: list[an.Item] = []
         self._activo: an.Item | None = None
         self._arrastre: dict | None = None
+
+        self._preset = preset
+        if preset == "full":
+            self._sel = QRectF(0, 0, geometria.width(), geometria.height())
+        elif preset is not None:
+            # un rectángulo físico de ventana se traduce a las coordenadas
+            # lógicas del overlay, recortado a la pantalla por si la
+            # ventana cuelga fuera del borde
+            logico = QRectF(preset.x() / self._dpr - geometria.x(),
+                            preset.y() / self._dpr - geometria.y(),
+                            preset.width() / self._dpr, preset.height() / self._dpr)
+            self._sel = logico.intersected(QRectF(0, 0, geometria.width(), geometria.height()))
+        if preset is not None and self._sel.width() >= 5 and self._sel.height() >= 5:
+            self._fase = "editando"
 
         # valores por defecto de cada herramienta nueva
         self._tool = "select"
@@ -319,6 +364,7 @@ class SelectionOverlay(QWidget):
         self._dash = "solid"
         self._cap_inicio = "none"
         self._cap_fin = "arrow_filled"
+        self._opacidad = 1.0
         self._fuente = QFont("Segoe UI", 18)
 
         self._editor: QLineEdit | None = None
@@ -328,7 +374,14 @@ class SelectionOverlay(QWidget):
         self._barra.hide()
         self._conectar_barra()
 
-        self.setCursor(Qt.CrossCursor)
+        self.setCursor(Qt.ArrowCursor if self._fase == "editando" else Qt.CrossCursor)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        # con selección preestablecida, la barra aparece apenas el overlay
+        # está en pantalla; el retraso de cero cede el turno al layout
+        if self._fase == "editando" and not self._barra.isVisible():
+            QTimer.singleShot(0, self._mostrar_barra)
 
     def _conectar_barra(self):
         b = self._barra
@@ -339,11 +392,13 @@ class SelectionOverlay(QWidget):
         b.dash_changed.connect(self._aplicar_dash)
         b.cap_start_changed.connect(lambda c: self._aplicar_cap("cap_start", c))
         b.cap_end_changed.connect(lambda c: self._aplicar_cap("cap_end", c))
+        b.opacity_changed.connect(self._aplicar_opacidad)
         b.font_changed.connect(self._aplicar_fuente)
         b.font_size_changed.connect(self._aplicar_tamano)
         b.bold_toggled.connect(lambda v: self._aplicar_estilo_fuente("setBold", v))
         b.italic_toggled.connect(lambda v: self._aplicar_estilo_fuente("setItalic", v))
         b.undo_clicked.connect(self._deshacer)
+        b.redo_clicked.connect(self._rehacer)
         b.clear_clicked.connect(self._limpiar)
         b.copy_clicked.connect(self._copiar)
         b.save_clicked.connect(self._guardar)
@@ -388,6 +443,30 @@ class SelectionOverlay(QWidget):
             setattr(self._activo, extremo, remate)
             self.update()
 
+    def _aplicar_opacidad(self, valor: float):
+        self._opacidad = valor
+        if self._activo is not None:
+            self._activo.opacity = valor
+            self.update()
+
+    def _pegar_imagen(self):
+        """ctrl+v suma la imagen del portapapeles como un elemento más."""
+        imagen = QGuiApplication.clipboard().image()
+        if imagen.isNull() or not self._sel.isValid():
+            return
+        factor = min(1.0, self._sel.width() * 0.6 / max(1, imagen.width()),
+                     self._sel.height() * 0.6 / max(1, imagen.height()))
+        ancho, alto = imagen.width() * factor, imagen.height() * factor
+        centro = self._sel.center()
+        nuevo = an.ImageItem(QRectF(centro.x() - ancho / 2, centro.y() - alto / 2,
+                                    ancho, alto), imagen)
+        nuevo.opacity = self._opacidad
+        self._items.append(nuevo)
+        self._rehechos.clear()
+        self._activo = nuevo
+        self._barra.activate("select")
+        self.update()
+
     def _aplicar_fuente(self, familia: str):
         self._fuente.setFamily(familia)
         if isinstance(self._activo, an.TextItem):
@@ -413,8 +492,14 @@ class SelectionOverlay(QWidget):
         self._commit_texto()
         if self._items:
             quitado = self._items.pop()
+            self._rehechos.append(quitado)
             if quitado is self._activo:
                 self._activo = None
+            self.update()
+
+    def _rehacer(self):
+        if self._rehechos:
+            self._items.append(self._rehechos.pop())
             self.update()
 
     def _limpiar(self):
@@ -454,7 +539,7 @@ class SelectionOverlay(QWidget):
         pintor.scale(self._dpr, self._dpr)
         pintor.translate(-self._sel.x(), -self._sel.y())
         for item in self._items:
-            item.paint(pintor)
+            an.paint_item(pintor, item)
         pintor.end()
         return salida
 
@@ -466,11 +551,17 @@ class SelectionOverlay(QWidget):
         self._commit_texto()
         editor = QLineEdit(self)
         editor.setPlaceholderText(t("tool.text_placeholder"))
-        editor.setFont(self._fuente if existente is None else existente.font)
+        fuente = self._fuente if existente is None else existente.font
+        editor.setFont(fuente)
         color = self._color if existente is None else existente.color
+        # sin caja ni fondo, con la fuente dentro del estilo: la hoja de
+        # estilos global fija 13px y pisaría el setFont, dejando el texto
+        # chico mientras se escribe
         editor.setStyleSheet(
-            f"background: rgba(255,255,255,235); border: 1px dashed {theme.accent()};"
-            f" border-radius: 4px; padding: 2px 6px; color: {color.name()};")
+            f"background: transparent; border: none; color: {color.name()};"
+            f" font-family: '{fuente.family()}'; font-size: {fuente.pointSizeF():.0f}pt;"
+            f" font-weight: {'bold' if fuente.bold() else 'normal'};"
+            f" font-style: {'italic' if fuente.italic() else 'normal'};")
         if existente is not None:
             editor.setText(existente.text)
             posicion = existente.pos
@@ -483,20 +574,35 @@ class SelectionOverlay(QWidget):
         editor.setMinimumWidth(180)
         editor.show()
         editor.setFocus()
-        editor.returnPressed.connect(self._commit_texto)
+        editor.returnPressed.connect(self._finalizar_texto)
         self._editor = editor
         self._editor_pos = QPointF(posicion)
 
     def _commit_texto(self):
+        """confirma el texto en edición; devuelve el elemento creado."""
         if self._editor is None:
-            return
+            return None
         texto = self._editor.text().strip()
         fuente = QFont(self._editor.font())
         self._editor.deleteLater()
         self._editor = None
+        nuevo = None
         if texto:
-            self._items.append(an.TextItem(self._editor_pos, texto, fuente, self._color))
+            nuevo = an.TextItem(self._editor_pos, texto, fuente, self._color)
+            self._items.append(nuevo)
+            self._rehechos.clear()
         self.update()
+        return nuevo
+
+    def _finalizar_texto(self):
+        """esc, enter o un clic afuera confirman el texto y lo dejan
+        seleccionado con la herramienta en selección."""
+        nuevo = self._commit_texto()
+        if nuevo is not None:
+            self._activo = nuevo
+            self._barra.activate("select")
+            self._barra.configure(self._tipo_de(nuevo), nuevo)
+            self.update()
 
     # ------------------------------------------------------------------ #
     # eventos de mouse
@@ -513,10 +619,12 @@ class SelectionOverlay(QWidget):
             return
 
         if self._editor is not None:
-            self._commit_texto()
+            # el clic afuera confirma el texto y lo deja seleccionado
+            self._finalizar_texto()
+            return
 
         if self._tool == "select":
-            self._press_seleccion(punto)
+            self._press_seleccion(punto, bool(e.modifiers() & Qt.AltModifier))
         elif self._tool == "text":
             if self._sel.contains(punto):
                 self._abrir_editor(punto)
@@ -531,21 +639,40 @@ class SelectionOverlay(QWidget):
                 QPointF(r.center().x(), r.bottom()), r.bottomLeft(),
                 QPointF(r.left(), r.center().y())]
 
-    def _press_seleccion(self, punto: QPointF):
+    def _press_seleccion(self, punto: QPointF, alt: bool = False):
         """el clic con la herramienta de selección resuelve, en orden: un
         tirador del elemento activo, un elemento para tomarlo, un tirador
         de la propia selección para redimensionarla, o el interior de la
-        selección para moverla entera."""
+        selección para moverla entera.
+
+        con alt sobre un elemento, se duplica y se arrastra la copia."""
         if self._activo is not None:
             for i, tirador in enumerate(self._activo.handles()):
                 if (tirador - punto).manhattanLength() <= _LADO_TIRADOR + 4:
                     self._arrastre = {"modo": "tirador", "indice": i}
+                    if isinstance(self._activo, an.ShapeItem):
+                        r = self._activo.rect
+                        self._arrastre["centro"] = QPointF(r.center())
+                        self._arrastre["aspecto"] = (r.width() / r.height()
+                                                     if r.height() > 0 else 0)
+                    elif isinstance(self._activo, an.TextItem):
+                        # el texto escala anclado a su estado inicial
+                        self._arrastre["texto0"] = (QRectF(self._activo._rect()),
+                                                    self._activo.font.pointSizeF())
                     return
         for item in reversed(self._items):
             if item.contains(punto):
+                # el texto se selecciona como cualquier elemento; su
+                # contenido se edita con doble clic
+                if alt:
+                    # se duplica el elemento y se arrastra la copia
+                    item = an.clonar(item)
+                    self._items.append(item)
+                    self._rehechos.clear()
                 self._activo = item
                 self._barra.configure(self._tipo_de(item), item)
-                self._arrastre = {"modo": "mover", "desde": punto}
+                self._arrastre = {"modo": "mover", "inicio": punto,
+                                  "antes_mov": an.snapshot(item)}
                 return
         self._activo = None
         self._barra.configure("select")
@@ -588,7 +715,11 @@ class SelectionOverlay(QWidget):
             nuevo = an.PixelateItem(QRectF(punto, punto), self._imagen, self._dpr, self._ancho + 9)
         else:
             return
+        nuevo.opacity = self._opacidad
         self._items.append(nuevo)
+        # dibujar algo nuevo invalida la rama de rehechos, como en
+        # cualquier editor
+        self._rehechos.clear()
         self._arrastre = {"modo": "crear", "item": nuevo, "origen": punto}
 
     def mouseMoveEvent(self, e):
@@ -603,21 +734,61 @@ class SelectionOverlay(QWidget):
         if not self._arrastre:
             self._actualizar_cursor_hover(punto)
             return
+        # shift endereza y proporciona; alt crece desde el centro; los
+        # mismos modificadores que en la pizarra de presentación
+        # el evento trae los modificadores reales; la caché de la app
+        # no se entera si shift ya venía presionado desde antes del clic
+        mods = e.modifiers()
+        shift = bool(mods & Qt.ShiftModifier)
+        alt = bool(mods & Qt.AltModifier)
         modo = self._arrastre["modo"]
         if modo == "crear":
             item = self._arrastre["item"]
+            origen = self._arrastre.get("origen")
             if isinstance(item, an.BrushItem):
                 item.add_point(punto)
             elif isinstance(item, an.ShapeItem):
-                item.rect = QRectF(self._arrastre["origen"], punto).normalized()
+                if alt and origen is not None:
+                    espejo = QPointF(2 * origen.x() - punto.x(), 2 * origen.y() - punto.y())
+                    rect = QRectF(espejo, punto).normalized()
+                    if shift:
+                        lado = max(rect.width(), rect.height())
+                        rect = QRectF(origen.x() - lado / 2, origen.y() - lado / 2, lado, lado)
+                    item.rect = rect
+                else:
+                    item.rect = (an.cuadrar_rect(origen, punto) if shift
+                                 else QRectF(origen, punto).normalized())
             elif isinstance(item, an.LineItem):
-                item.p2 = punto
+                destino = an.snap_45(origen, punto) if shift and origen else punto
+                item.p2 = destino
+                if origen is not None:
+                    item.p1 = (QPointF(2 * origen.x() - destino.x(),
+                                       2 * origen.y() - destino.y())
+                               if alt else QPointF(origen))
         elif modo == "mover":
-            delta = punto - self._arrastre["desde"]
+            # desplazamiento absoluto desde el punto de agarre; con shift
+            # se pega al eje recto más cercano
+            delta = punto - self._arrastre["inicio"]
+            if shift:
+                delta = an.restringir_eje(delta)
+            an.restore(self._activo, self._arrastre["antes_mov"])
             self._activo.move_by(delta.x(), delta.y())
-            self._arrastre["desde"] = punto
         elif modo == "tirador":
-            self._activo.set_handle(self._arrastre["indice"], punto)
+            indice = self._arrastre["indice"]
+            if isinstance(self._activo, an.TextItem) and "texto0" in self._arrastre:
+                rect0, tam0 = self._arrastre["texto0"]
+                an.escalar_texto(self._activo, indice, punto, rect0, tam0)
+            elif isinstance(self._activo, an.LineItem) and shift:
+                fijo = self._activo.p2 if indice == 0 else self._activo.p1
+                self._activo.set_handle(indice, an.snap_45(fijo, punto))
+            else:
+                self._activo.set_handle(indice, punto)
+            if isinstance(self._activo, an.ShapeItem):
+                if shift and self._arrastre.get("aspecto"):
+                    self._activo.rect = an.ajustar_aspecto(
+                        self._activo.rect, self._arrastre["aspecto"], indice)
+                if alt and self._arrastre.get("centro") is not None:
+                    self._activo.rect.moveCenter(self._arrastre["centro"])
         elif modo == "sel_mover":
             delta = punto - self._arrastre["desde"]
             movida = self._sel.translated(delta)
@@ -692,7 +863,10 @@ class SelectionOverlay(QWidget):
                     self._items.remove(item)
             else:
                 if self._tool != "brush":
+                    # lo recién dibujado queda seleccionado y la
+                    # herramienta pasa a selección, lista para acomodar
                     self._activo = item
+                    self._barra.activate("select")
                     self._barra.configure(self._tipo_de(item), item)
         elif self._arrastre and self._arrastre["modo"] in ("sel_mover", "sel_tirador"):
             # tras mover o agrandar la selección, la barra se reacomoda
@@ -715,8 +889,8 @@ class SelectionOverlay(QWidget):
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
             if self._editor is not None:
-                self._editor.deleteLater()
-                self._editor = None
+                # esc confirma y selecciona el texto en lugar de tirarlo
+                self._finalizar_texto()
                 return
             self.close()
         elif e.matches(QKeySequence.Copy):
@@ -725,6 +899,10 @@ class SelectionOverlay(QWidget):
             self._guardar()
         elif e.matches(QKeySequence.Undo):
             self._deshacer()
+        elif e.matches(QKeySequence.Redo):
+            self._rehacer()
+        elif e.matches(QKeySequence.Paste):
+            self._pegar_imagen()
         elif e.key() == Qt.Key_Delete and self._activo is not None:
             self._items.remove(self._activo)
             self._activo = None
@@ -798,7 +976,7 @@ class SelectionOverlay(QWidget):
             pintor.save()
             pintor.setClipRect(self._sel)
             for item in self._items:
-                item.paint(pintor)
+                an.paint_item(pintor, item)
             pintor.restore()
 
             # los tiradores de la selección se muestran cuando no hay un

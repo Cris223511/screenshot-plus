@@ -32,8 +32,8 @@ class AboutDialog(QDialog):
         columna.setSpacing(6)
 
         logo = QLabel()
-        pixmap = QPixmap(paths.resource_path(os.path.join("assets", "logo", "logo.jpg")))
-        logo.setPixmap(pixmap.scaled(84, 84, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        from src.ui.widgets.icons import rounded_logo
+        logo.setPixmap(rounded_logo(84))
         logo.setAlignment(Qt.AlignCenter)
         columna.addWidget(logo)
 

@@ -7,6 +7,10 @@ mss>=9.0
 # procesamiento de imagen: recortes, unión de tramos y exportación
 Pillow>=10.0
 
+# formatos modernos de guardado que pillow no trae de fábrica
+pillow-heif>=0.16
+pillow-avif-plugin>=1.4
+
 # escucha de atajos de teclado globales, aunque la app esté en segundo plano
 pynput>=1.7
 

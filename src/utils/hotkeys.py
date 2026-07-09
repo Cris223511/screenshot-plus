@@ -41,12 +41,16 @@ class HotkeyManager(QObject):
             "zoom_mode": self.zoom_mode,
             "toggle_panel": self.toggle_panel,
         }
+        from src.core.capture import foreground_fullscreen
         for accion, senal in acciones.items():
             combinacion = shortcuts.to_pynput(shortcuts.get(accion))
             if combinacion:
                 # el argumento por defecto fija la señal de esta vuelta del
-                # bucle; sin él todas las entradas dispararían la última
-                mapa[combinacion] = lambda s=senal: s.emit()
+                # bucle; sin él todas las entradas dispararían la última.
+                # con un juego u otra app a pantalla completa al frente,
+                # el atajo se calla para no interrumpir
+                mapa[combinacion] = lambda s=senal: (None if foreground_fullscreen()
+                                                     else s.emit())
         try:
             self._listener = keyboard.GlobalHotKeys(mapa)
             self._listener.daemon = True

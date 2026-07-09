@@ -27,6 +27,11 @@ _DEFAULTS = {
     "laser_color": "#ff3b30",    # el puntero del modo presentación, a gusto de cada quien
     "laser_size": 14,
     "laser_trail": True,         # la estela que se desvanece detrás del láser
+    "board_keys": {},            # letras personalizadas de las herramientas del panel
+    "recent_colors": [],         # los últimos colores elegidos en el selector
+    "confirm_discard_board": True,   # preguntar antes de perder lo dibujado en la pizarra
+    "open_folder_after_save": False, # abrir el explorador señalando la captura guardada
+    "board_master_key": ".",         # la tecla que enciende los atajos globales del panel
 }
 
 

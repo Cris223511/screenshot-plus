@@ -39,6 +39,14 @@ QToolButton::menu-indicator {
     width: 0;
 }
 
+/* en el panel de presentación, la letra del atajo va chiquita y apagada
+   bajo cada ícono, como guía discreta */
+QWidget#barraFlotante QToolButton {
+    font-size: 8px;
+    color: #98a0b0;
+    padding: 4px 6px 2px 6px;
+}
+
 QPushButton {
     background: #f2f4f8;
     border: 1px solid #e3e6ec;

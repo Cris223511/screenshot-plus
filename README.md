@@ -31,7 +31,7 @@ Tomar una captura, marcarla con una flecha y mandarla no debería requerir tres 
 
 | Versión | Archivo | Estado |
 | ------- | ------- | ------ |
-| 1.0.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.0.0/ScreenshotPlus.exe) | Disponible |
+| 1.1.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.1.0/ScreenshotPlus.exe) | Disponible |
 
 Basta con descargar el `.exe` y ejecutarlo. No hay instalador ni pasos adicionales; todas las versiones viven en la sección de [releases](https://github.com/Cris223511/screenshot-plus/releases).
 
@@ -42,7 +42,7 @@ Basta con descargar el `.exe` y ejecutarlo. No hay instalador ni pasos adicional
 ### Captura
 
 - **Región** (Alt + A): la pantalla se congela, arrastras sobre la zona y al soltar se abre el editor de anotaciones. La selección se puede mover y redimensionar antes de decidir.
-- **Pantalla completa** (Alt + S) y **ventana activa** (Alt + W): directo al portapapeles, con notificación.
+- **Pantalla completa** (Alt + S) y **ventana activa** (Alt + W): el mismo editor, con la zona ya seleccionada automáticamente; anotas si quieres y decides entre copiar o guardar.
 - **Captura con desplazamiento** (Alt + D): eliges la zona, el resto de la pantalla queda bloqueado con un velo, y mientras haces scroll la aplicación une el contenido en una sola imagen larga con vista previa en vivo. La costura tolera ruido visual (suavizado de fuentes, cursores parpadeando) y descarta fotogramas repetidos. Al finalizar, la imagen se abre en un editor con scroll.
 - Todo se captura a **resolución nativa del monitor**, sin pérdida, incluso con escalado de Windows al 125 o 150 %.
 - El panel de la aplicación se aparta solo al capturar: nunca sale en tus fotos.
@@ -50,27 +50,32 @@ Basta con descargar el `.exe` y ejecutarlo. No hay instalador ni pasos adicional
 ### Editor de anotaciones
 
 - **Formas** (8): rectángulo, rectángulo redondeado, elipse, triángulo, rombo, pentágono, hexágono y estrella.
-- **Líneas y flechas** con remate configurable en cada extremo por separado (nada, flecha, flecha rellena, punto, cuadrado, rombo) y trazo continuo, discontinuo o punteado.
+- **Líneas y flechas** con remate configurable en cada extremo por separado (nada, flecha, flecha rellena, punto, cuadrado, rombo) y cinco estilos de trazo (continuo, discontinuo, punteado, guion-punto, guion-punto-punto).
 - **Pincel** de trazo libre con grosor ajustable.
-- **Texto** con más de 25 tipografías en desplegable, tamaño, negrita, cursiva y color. Se escribe directo sobre la imagen; doble clic reabre un texto existente.
-- **Pixelado** para ocultar correos, números o cualquier dato sensible.
-- **Edición posterior**: cualquier elemento ya dibujado se selecciona, se mueve, se redimensiona por sus tiradores y se le cambia color, grosor o estilo desde la misma barra, en vivo.
-- Deshacer (Ctrl + Z), borrar elemento (Supr), restaurar todo, copiar (Ctrl + C) y guardar (Ctrl + S).
+- **Texto** con todas las tipografías del sistema, tamaño, negrita, cursiva, subrayado, tachado, espaciado de letras, rotación, fondo (sólido o redondeado con su color), sombra y contorno. Un clic lo selecciona, doble clic reedita su contenido.
+- **Pixelado** para ocultar correos, números o cualquier dato sensible; **opacidad** para cualquier elemento; e **imágenes** pegadas con Ctrl + V.
+- **Edición posterior**: cualquier elemento ya dibujado se selecciona, se mueve, se redimensiona por sus tiradores y se le cambia color, grosor o estilo desde la misma barra, en vivo. Al terminar de dibujar queda seleccionado, listo para acomodar.
+- **Modificadores estilo diseño**: Shift endereza líneas (pasos de 15°), hace formas proporcionadas, conserva la proporción al estirar y mueve en recto; Alt crece desde el centro; Alt + arrastre duplica el elemento.
+- Deshacer (Ctrl + Z, movimientos incluidos), rehacer (Ctrl + Y), borrar elemento (Supr), restaurar todo, copiar (Ctrl + C) y guardar (Ctrl + S).
 
-### Modo presentación
+### Pizarra de presentación
 
-Pensado para clases y reuniones, con la pantalla **en vivo**: nada se congela, los videos siguen corriendo.
+Pensada para clases y reuniones: un panel lateral flotante que pausa la pantalla cuando lo necesitas, la convierte en pizarra y la devuelve intacta al salir.
 
-- **Panel lateral flotante** con bordes redondeados, arrastrable a cualquier borde y fijable siempre adelante con su pin.
-- **Zoom en vivo** (Z): amplía lo que está pasando alrededor del cursor, con la rueda o las teclas + y -.
-- **Puntero láser** (L) con estela que se desvanece; color, tamaño y estela configurables en Opciones.
-- **Pincel** (P), **resaltador** (R), **línea** (I) y **flecha** (F) para marcar sobre la pantalla; C limpia todo.
+- **Panel lateral** con letras de atajo visibles (y configurables), arrastrable a cualquier borde y con minimizar a un chip flotante.
+- **Herramientas**: zoom con la rueda (Z), selección con recuadro elástico y edición por tiradores (V), mano (H), borrador (E), pincel (P), línea (I), flecha (F), formas (S, repetir rota entre las ocho), texto (T), resaltador (R) y puntero láser con estela configurable (L).
+- **Ventanita de propiedades** al costado: colores con recientes y código hex, grosor, estilos de trazo, extremos de flecha, opacidad y las opciones completas de texto; con algo seleccionado carga sus valores y lo edita en vivo, incluso varios a la vez.
+- **Imágenes insertadas** desde archivo o pegadas con Ctrl + V, movibles y estirables.
+- **Con el panel minimizado**, cada herramienta responde con Alt + su letra desde cualquier ventana.
+- **Deshacer y rehacer por acciones**: también reviven lo borrado y lo limpiado.
+- **Captura integrada**: Ctrl + C copia toda la pizarra con los dibujos, Ctrl + S la guarda, y Ctrl + A recorta solo un pedazo.
 
 ### Aplicación
 
-- **Atajos globales** funcionando aunque la app esté en la bandeja, todos personalizables.
-- **6 idiomas**: español (por defecto), inglés, portugués, francés, alemán e italiano. El cambio se aplica al instante, sin reiniciar.
-- **Tema claro y oscuro**, panel siempre adelante con pin, notificaciones animadas propias.
+- **Atajos globales** funcionando aunque la app esté en la bandeja, todos personalizables, silenciados cuando hay un juego a pantalla completa al frente.
+- **9 idiomas**: español (por defecto), inglés, portugués, francés, alemán, italiano, japonés, chino y ruso. El cambio se aplica al instante, sin reiniciar.
+- **14 formatos de guardado**: PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO y TGA, con calidad ajustable donde aplica y opción de abrir la carpeta al guardar.
+- **Tema claro y oscuro**, panel siempre adelante con pin, notificaciones y tooltips animados propios.
 - **Instancia única**: ejecutar el `.exe` dos veces no duplica la app, trae la que ya corre.
 - **Arranque con Windows** y arranque minimizado en la bandeja, opcionales.
 - **Comprobación de actualizaciones** contra las releases de este repositorio, sin servidores propios ni telemetría.

@@ -9,10 +9,10 @@ combinación nueva. nada se toca de verdad hasta apretar guardar.
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDialog,
-                               QFileDialog, QFormLayout, QHBoxLayout,
-                               QKeySequenceEdit, QLabel, QLineEdit,
-                               QPushButton, QSlider, QTabWidget, QVBoxLayout,
-                               QWidget)
+                               QFileDialog, QFormLayout, QGridLayout,
+                               QHBoxLayout, QKeySequenceEdit, QLabel,
+                               QLineEdit, QPushButton, QSlider, QTabWidget,
+                               QVBoxLayout, QWidget)
 
 from src.config import paths, shortcuts
 from src.config.settings import settings
@@ -28,7 +28,9 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t("set.title"))
-        self.setMinimumWidth(470)
+        # ancho suficiente para que las cinco pestañas entren sin que la
+        # barra muestre sus flechas de desplazamiento, que se ven mal
+        self.setMinimumWidth(560)
 
         columna = QVBoxLayout(self)
         columna.setContentsMargins(16, 14, 16, 14)
@@ -106,6 +108,10 @@ class SettingsDialog(QDialog):
         fila.addWidget(self._carpeta)
         fila.addWidget(examinar)
         forma.addRow(t("set.savedir"), fila)
+
+        self._abrir_carpeta = QCheckBox(t("set.open_folder"))
+        self._abrir_carpeta.setChecked(settings.get("open_folder_after_save", False))
+        forma.addRow(self._abrir_carpeta)
         return tab
 
     def _tab_formato(self) -> QWidget:
@@ -114,10 +120,13 @@ class SettingsDialog(QDialog):
         forma.setContentsMargins(8, 14, 8, 8)
         forma.setSpacing(12)
 
+        # todos los formatos que este equipo puede escribir, tal cual
+        from src.core import storage
         self._formato = QComboBox()
-        self._formato.addItem("PNG", "png")
-        self._formato.addItem("JPEG", "jpeg")
-        self._formato.setCurrentIndex(0 if settings.get("image_format") == "png" else 1)
+        for clave in storage.available_formats():
+            self._formato.addItem(clave.upper(), clave)
+        indice = self._formato.findData(settings.get("image_format", "png"))
+        self._formato.setCurrentIndex(max(0, indice))
         forma.addRow(t("set.format_save"), self._formato)
 
         fila = QHBoxLayout()
@@ -131,10 +140,9 @@ class SettingsDialog(QDialog):
         fila.addWidget(self._valor_calidad)
         forma.addRow(t("set.quality"), fila)
 
-        # la calidad solo tiene sentido en jpeg; en png queda apagada
+        # la calidad solo aplica a los formatos con compresión con pérdida
         def alternar():
-            es_jpeg = self._formato.currentData() == "jpeg"
-            self._calidad.setEnabled(es_jpeg)
+            self._calidad.setEnabled(storage.is_lossy(self._formato.currentData()))
         self._formato.currentIndexChanged.connect(lambda _: alternar())
         alternar()
         return tab
@@ -168,6 +176,50 @@ class SettingsDialog(QDialog):
         self._laser_estela = QCheckBox(t("set.laser_trail"))
         self._laser_estela.setChecked(settings.get("laser_trail", True))
         forma.addRow(self._laser_estela)
+
+        self._confirmar_descarte = QCheckBox(t("set.confirm_discard"))
+        self._confirmar_descarte.setChecked(settings.get("confirm_discard_board", True))
+        forma.addRow(self._confirmar_descarte)
+
+        # las letras de las herramientas del panel lateral, cada una con el
+        # nombre de su herramienta al lado para que se entienda qué es qué
+        titulo_teclas = QLabel(t("set.board_keys"))
+        titulo_teclas.setObjectName("secundario")
+        forma.addRow(titulo_teclas)
+        from src.ui.overlays.floating_toolbar import DEFAULT_KEYS, board_key
+        from src.ui.widgets.icons import icon as icono_svg
+        from src.ui.themes.theme_manager import theme as tema
+        iconos = {"zoom": "zoom", "select": "select", "hand": "hand",
+                  "laser": "laser", "brush": "brush", "highlight": "highlighter",
+                  "line": "line", "arrow": "arrow", "shape": "shape-rect",
+                  "eraser": "eraser", "text": "text"}
+        nombres = {"zoom": t("zoom.live"), "select": t("tool.select"),
+                   "hand": t("zoom.hand"), "laser": t("zoom.laser"),
+                   "brush": t("zoom.brush"), "highlight": t("zoom.highlight"),
+                   "line": t("tool.line"), "arrow": t("tool.arrow"),
+                   "shape": t("tool.shapes"), "eraser": t("tool.eraser"),
+                   "text": t("tool.text")}
+        rejilla = QGridLayout()
+        rejilla.setHorizontalSpacing(10)
+        rejilla.setVerticalSpacing(6)
+        self._teclas_panel: dict[str, QLineEdit] = {}
+        for i, modo in enumerate(DEFAULT_KEYS):
+            fila_g, col = divmod(i, 2)
+            simbolo = QLabel()
+            simbolo.setPixmap(icono_svg(iconos[modo], tema.icon_color()).pixmap(16, 16))
+            etiqueta = QLabel(nombres[modo].split(",")[0])
+            campo = QLineEdit(board_key(modo))
+            campo.setMaxLength(1)
+            campo.setFixedWidth(34)
+            campo.setAlignment(Qt.AlignCenter)
+            self._teclas_panel[modo] = campo
+            base = col * 3
+            rejilla.addWidget(simbolo, fila_g, base)
+            rejilla.addWidget(etiqueta, fila_g, base + 1)
+            rejilla.addWidget(campo, fila_g, base + 2)
+        rejilla.setColumnStretch(1, 1)
+        rejilla.setColumnStretch(4, 1)
+        forma.addRow(rejilla)
         return tab
 
     def _pintar_boton_laser(self):
@@ -216,12 +268,25 @@ class SettingsDialog(QDialog):
         settings.set("hide_main_on_capture", self._ocultar.isChecked())
         settings.set("show_notifications", self._avisos.isChecked())
         settings.set("start_in_tray", self._en_bandeja.isChecked())
+        settings.set("open_folder_after_save", self._abrir_carpeta.isChecked())
+        settings.set("confirm_discard_board", self._confirmar_descarte.isChecked())
         settings.set("save_dir", self._carpeta.text())
         settings.set("image_format", self._formato.currentData())
         settings.set("jpeg_quality", self._calidad.value())
         settings.set("laser_color", self._laser_color.name())
         settings.set("laser_size", self._laser_tamano.value())
         settings.set("laser_trail", self._laser_estela.isChecked())
+
+        # solo letras válidas y sin repetir; una vacía o duplicada vuelve
+        # a su valor de fábrica
+        letras = {}
+        usadas = set()
+        for modo, campo in self._teclas_panel.items():
+            letra = campo.text().strip().upper()
+            if letra.isalpha() and letra not in usadas:
+                letras[modo] = letra
+                usadas.add(letra)
+        settings.set("board_keys", letras)
 
         settings.set("autostart", self._autostart.isChecked())
         autostart.sync(self._autostart.isChecked())

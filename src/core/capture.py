@@ -32,6 +32,51 @@ def exclude_from_capture(widget) -> bool:
         return False
 
 
+def make_tool_window(widget) -> None:
+    """saca la ventana de la barra de tareas sin usar qt.tool.
+
+    las ventanas qt.tool se esconden solas cuando la aplicación pierde el
+    foco, y eso hacía desaparecer los paneles flotantes en pleno uso. el
+    estilo nativo WS_EX_TOOLWINDOW logra lo mismo (sin entrada en la barra
+    de tareas) pero la ventana se queda quieta donde está.
+    """
+    try:
+        GWL_EXSTYLE = -20
+        WS_EX_TOOLWINDOW = 0x00000080
+        WS_EX_APPWINDOW = 0x00040000
+        hwnd = int(widget.winId())
+        estilo = ctypes.windll.user32.GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+        ctypes.windll.user32.SetWindowLongPtrW(
+            hwnd, GWL_EXSTYLE, (estilo | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW)
+    except Exception:
+        pass
+
+
+def foreground_fullscreen() -> bool:
+    """True cuando la ventana con foco ocupa su monitor entero.
+
+    los juegos y las apps a pantalla completa se detectan así; con eso los
+    atajos globales se quedan callados para no interrumpir la partida.
+    """
+    try:
+        import win32api
+        import win32gui
+        hwnd = win32gui.GetForegroundWindow()
+        if not hwnd:
+            return False
+        clase = win32gui.GetClassName(hwnd)
+        # el escritorio y la shell también miden pantalla completa, pero
+        # no son juegos
+        if clase in ("Progman", "WorkerW", "Shell_TrayWnd"):
+            return False
+        rect = win32gui.GetWindowRect(hwnd)
+        monitor = win32api.MonitorFromWindow(hwnd, 2)
+        info = win32api.GetMonitorInfo(monitor)
+        return tuple(rect) == tuple(info["Monitor"])
+    except Exception:
+        return False
+
+
 def _grab(region: dict) -> QImage:
     """lectura cruda de una zona de pantalla y conversión a QImage.
 
@@ -66,6 +111,25 @@ def grab_region(left: int, top: int, width: int, height: int) -> QImage:
     if width < 1 or height < 1:
         return QImage()
     return _grab({"left": left, "top": top, "width": width, "height": height})
+
+
+def active_window_rect():
+    """rectángulo de la ventana con foco, en píxeles físicos, o None.
+
+    sirve para preseleccionar esa zona en el editor de capturas: el
+    usuario ve la ventana ya enmarcada y decide si ajusta, anota, copia
+    o guarda.
+    """
+    try:
+        import win32gui
+        hwnd = win32gui.GetForegroundWindow()
+        izquierda, arriba, derecha, abajo = win32gui.GetWindowRect(hwnd)
+        if derecha - izquierda > 0 and abajo - arriba > 0:
+            from PySide6.QtCore import QRect
+            return QRect(izquierda, arriba, derecha - izquierda, abajo - arriba)
+    except Exception:
+        pass
+    return None
 
 
 def grab_active_window() -> QImage:

@@ -42,6 +42,7 @@ class _Canvas(QWidget):
         self.setMouseTracking(True)
 
         self.items: list[an.Item] = []
+        self.rehechos: list[an.Item] = []
         self.activo: an.Item | None = None
         self._arrastre: dict | None = None
 
@@ -53,6 +54,7 @@ class _Canvas(QWidget):
         self.dash = "solid"
         self.cap_inicio = "none"
         self.cap_fin = "arrow_filled"
+        self.opacidad = 1.0
         self.fuente = QFont("Segoe UI", 18)
 
         self._editor: QLineEdit | None = None
@@ -65,11 +67,16 @@ class _Canvas(QWidget):
         self.commit_texto()
         editor = QLineEdit(self)
         editor.setPlaceholderText(t("tool.text_placeholder"))
-        editor.setFont(self.fuente if existente is None else existente.font)
+        fuente = self.fuente if existente is None else existente.font
+        editor.setFont(fuente)
         color = self.color if existente is None else existente.color
+        # sin caja ni fondo, con la fuente dentro del estilo: la hoja de
+        # estilos global fija 13px y pisaría el setFont
         editor.setStyleSheet(
-            f"background: rgba(255,255,255,235); border: 1px dashed {theme.accent()};"
-            f" border-radius: 4px; padding: 2px 6px; color: {color.name()};")
+            f"background: transparent; border: none; color: {color.name()};"
+            f" font-family: '{fuente.family()}'; font-size: {fuente.pointSizeF():.0f}pt;"
+            f" font-weight: {'bold' if fuente.bold() else 'normal'};"
+            f" font-style: {'italic' if fuente.italic() else 'normal'};")
         if existente is not None:
             editor.setText(existente.text)
             posicion = existente.pos
@@ -82,20 +89,34 @@ class _Canvas(QWidget):
         editor.setMinimumWidth(180)
         editor.show()
         editor.setFocus()
-        editor.returnPressed.connect(self.commit_texto)
+        editor.returnPressed.connect(self.finalizar_texto)
         self._editor = editor
         self._editor_pos = QPointF(posicion)
 
     def commit_texto(self):
+        """confirma el texto en edición; devuelve el elemento creado."""
         if self._editor is None:
-            return
+            return None
         texto = self._editor.text().strip()
         fuente = QFont(self._editor.font())
         self._editor.deleteLater()
         self._editor = None
+        nuevo = None
         if texto:
-            self.items.append(an.TextItem(self._editor_pos, texto, fuente, self.color))
+            nuevo = an.TextItem(self._editor_pos, texto, fuente, self.color)
+            self.items.append(nuevo)
+            self.rehechos.clear()
         self.update()
+        return nuevo
+
+    def finalizar_texto(self):
+        """esc, enter o un clic afuera confirman el texto y lo dejan
+        seleccionado con la herramienta en selección."""
+        nuevo = self.commit_texto()
+        if nuevo is not None:
+            self.tool = "select"
+            self.activo = nuevo
+            self.item_selected.emit(self._tipo_de(nuevo), nuevo)
 
     # ------------------------------------------------------------------ #
     # mouse
@@ -105,27 +126,46 @@ class _Canvas(QWidget):
             return
         punto = QPointF(e.position())
         if self._editor is not None:
-            self.commit_texto()
+            # el clic afuera confirma el texto y lo deja seleccionado
+            self.finalizar_texto()
+            return
 
         if self.tool == "select":
-            self._press_seleccion(punto)
+            self._press_seleccion(punto, bool(e.modifiers() & Qt.AltModifier))
         elif self.tool == "text":
             self.abrir_editor_texto(punto)
         else:
             self._press_dibujo(punto)
         self.update()
 
-    def _press_seleccion(self, punto: QPointF):
+    def _press_seleccion(self, punto: QPointF, alt: bool = False):
         if self.activo is not None:
             for i, tirador in enumerate(self.activo.handles()):
                 if (tirador - punto).manhattanLength() <= _LADO_TIRADOR + 4:
                     self._arrastre = {"modo": "tirador", "indice": i}
+                    if isinstance(self.activo, an.ShapeItem):
+                        r = self.activo.rect
+                        self._arrastre["centro"] = QPointF(r.center())
+                        self._arrastre["aspecto"] = (r.width() / r.height()
+                                                     if r.height() > 0 else 0)
+                    elif isinstance(self.activo, an.TextItem):
+                        # el texto escala anclado a su estado inicial
+                        self._arrastre["texto0"] = (QRectF(self.activo._rect()),
+                                                    self.activo.font.pointSizeF())
                     return
         for item in reversed(self.items):
             if item.contains(punto):
+                # el texto se selecciona como cualquier elemento; su
+                # contenido se edita con doble clic
+                if alt:
+                    # se duplica el elemento y se arrastra la copia
+                    item = an.clonar(item)
+                    self.items.append(item)
+                    self.rehechos.clear()
                 self.activo = item
                 self.item_selected.emit(self._tipo_de(item), item)
-                self._arrastre = {"modo": "mover", "desde": punto}
+                self._arrastre = {"modo": "mover", "inicio": punto,
+                                  "antes_mov": an.snapshot(item)}
                 return
         self.activo = None
         self.item_selected.emit("select", None)
@@ -162,7 +202,10 @@ class _Canvas(QWidget):
             nuevo = an.PixelateItem(QRectF(punto, punto), self.imagen, 1.0, self.ancho + 9)
         else:
             return
+        nuevo.opacity = self.opacidad
         self.items.append(nuevo)
+        # una figura nueva invalida lo que estaba pendiente de rehacer
+        self.rehechos.clear()
         self._arrastre = {"modo": "crear", "item": nuevo, "origen": punto}
 
     def mouseMoveEvent(self, e):
@@ -170,21 +213,61 @@ class _Canvas(QWidget):
         if not self._arrastre:
             self._cursor_hover(punto)
             return
+        # los mismos modificadores de los otros editores: shift endereza
+        # y proporciona, alt crece desde el centro
+        # el evento trae los modificadores reales; la caché de la app
+        # no se entera si shift ya venía presionado desde antes del clic
+        mods = e.modifiers()
+        shift = bool(mods & Qt.ShiftModifier)
+        alt = bool(mods & Qt.AltModifier)
         modo = self._arrastre["modo"]
         if modo == "crear":
             item = self._arrastre["item"]
+            origen = self._arrastre.get("origen")
             if isinstance(item, an.BrushItem):
                 item.add_point(punto)
             elif isinstance(item, an.ShapeItem):
-                item.rect = QRectF(self._arrastre["origen"], punto).normalized()
+                if alt and origen is not None:
+                    espejo = QPointF(2 * origen.x() - punto.x(), 2 * origen.y() - punto.y())
+                    rect = QRectF(espejo, punto).normalized()
+                    if shift:
+                        lado = max(rect.width(), rect.height())
+                        rect = QRectF(origen.x() - lado / 2, origen.y() - lado / 2, lado, lado)
+                    item.rect = rect
+                else:
+                    item.rect = (an.cuadrar_rect(origen, punto) if shift
+                                 else QRectF(origen, punto).normalized())
             elif isinstance(item, an.LineItem):
-                item.p2 = punto
+                destino = an.snap_45(origen, punto) if shift and origen else punto
+                item.p2 = destino
+                if origen is not None:
+                    item.p1 = (QPointF(2 * origen.x() - destino.x(),
+                                       2 * origen.y() - destino.y())
+                               if alt else QPointF(origen))
         elif modo == "mover":
-            delta = punto - self._arrastre["desde"]
+            # desplazamiento absoluto desde el punto de agarre; con shift
+            # se pega al eje recto más cercano
+            delta = punto - self._arrastre["inicio"]
+            if shift:
+                delta = an.restringir_eje(delta)
+            an.restore(self.activo, self._arrastre["antes_mov"])
             self.activo.move_by(delta.x(), delta.y())
-            self._arrastre["desde"] = punto
         elif modo == "tirador":
-            self.activo.set_handle(self._arrastre["indice"], punto)
+            indice = self._arrastre["indice"]
+            if isinstance(self.activo, an.TextItem) and "texto0" in self._arrastre:
+                rect0, tam0 = self._arrastre["texto0"]
+                an.escalar_texto(self.activo, indice, punto, rect0, tam0)
+            elif isinstance(self.activo, an.LineItem) and shift:
+                fijo = self.activo.p2 if indice == 0 else self.activo.p1
+                self.activo.set_handle(indice, an.snap_45(fijo, punto))
+            else:
+                self.activo.set_handle(indice, punto)
+            if isinstance(self.activo, an.ShapeItem):
+                if shift and self._arrastre.get("aspecto"):
+                    self.activo.rect = an.ajustar_aspecto(
+                        self.activo.rect, self._arrastre["aspecto"], indice)
+                if alt and self._arrastre.get("centro") is not None:
+                    self.activo.rect.moveCenter(self._arrastre["centro"])
         self.update()
 
     def _cursor_hover(self, punto: QPointF):
@@ -213,6 +296,9 @@ class _Canvas(QWidget):
                 if item in self.items:
                     self.items.remove(item)
             elif self.tool != "brush":
+                # lo recién dibujado queda seleccionado y la herramienta
+                # pasa a selección, lista para acomodar
+                self.tool = "select"
                 self.activo = item
                 self.item_selected.emit(self._tipo_de(item), item)
         self._arrastre = None
@@ -234,7 +320,7 @@ class _Canvas(QWidget):
         pintor.setRenderHint(QPainter.Antialiasing)
         pintor.setRenderHint(QPainter.TextAntialiasing)
         for item in self.items:
-            item.paint(pintor)
+            an.paint_item(pintor, item)
         pintor.end()
         return salida
 
@@ -243,7 +329,7 @@ class _Canvas(QWidget):
         pintor.setRenderHint(QPainter.Antialiasing)
         pintor.drawImage(0, 0, self.imagen)
         for item in self.items:
-            item.paint(pintor)
+            an.paint_item(pintor, item)
         if self.activo is not None:
             tiradores = self.activo.handles()
             pintor.setPen(QPen(QColor(theme.accent()), 1.2))
@@ -304,16 +390,25 @@ class EditorWindow(QWidget):
         b.dash_changed.connect(self._aplicar("dash", "dash"))
         b.cap_start_changed.connect(self._aplicar("cap_inicio", "cap_start"))
         b.cap_end_changed.connect(self._aplicar("cap_fin", "cap_end"))
+        b.opacity_changed.connect(self._aplicar("opacidad", "opacity"))
         b.font_changed.connect(self._aplicar_fuente)
         b.font_size_changed.connect(self._aplicar_tamano)
         b.bold_toggled.connect(lambda v: self._aplicar_estilo_fuente("setBold", v))
         b.italic_toggled.connect(lambda v: self._aplicar_estilo_fuente("setItalic", v))
         b.undo_clicked.connect(self._deshacer)
+        b.redo_clicked.connect(self._rehacer)
         b.clear_clicked.connect(self._limpiar)
         b.copy_clicked.connect(self._copiar)
         b.save_clicked.connect(self._guardar)
         b.cancel_clicked.connect(self.close)
-        c.item_selected.connect(b.configure)
+        c.item_selected.connect(self._al_seleccionar)
+
+    def _al_seleccionar(self, tipo: str, item):
+        """al quedar algo seleccionado (a mano o tras dibujarlo), la barra
+        marca la herramienta de selección y carga sus propiedades."""
+        if item is not None and self._canvas.tool == "select":
+            self._barra.activate("select")
+        self._barra.configure(tipo, item)
 
     def _cambiar_tool(self, nombre: str):
         self._canvas.commit_texto()
@@ -366,8 +461,15 @@ class EditorWindow(QWidget):
         c.commit_texto()
         if c.items:
             quitado = c.items.pop()
+            c.rehechos.append(quitado)
             if quitado is c.activo:
                 c.activo = None
+            c.update()
+
+    def _rehacer(self):
+        c = self._canvas
+        if c.rehechos:
+            c.items.append(c.rehechos.pop())
             c.update()
 
     def _limpiar(self):
@@ -375,6 +477,24 @@ class EditorWindow(QWidget):
         c.commit_texto()
         c.items.clear()
         c.activo = None
+        c.update()
+
+    def _pegar_imagen(self):
+        """ctrl+v pega la imagen del portapapeles sobre el lienzo."""
+        c = self._canvas
+        imagen = QGuiApplication.clipboard().image()
+        if imagen.isNull():
+            return
+        factor = min(1.0, c.width() * 0.6 / max(1, imagen.width()),
+                     c.height() * 0.6 / max(1, imagen.height()))
+        ancho, alto = imagen.width() * factor, imagen.height() * factor
+        nuevo = an.ImageItem(QRectF((c.width() - ancho) / 2, (c.height() - alto) / 2,
+                                    ancho, alto), imagen)
+        nuevo.opacity = c.opacidad
+        c.items.append(nuevo)
+        c.rehechos.clear()
+        c.activo = nuevo
+        self._barra.activate("select")
         c.update()
 
     def _copiar(self):
@@ -393,12 +513,21 @@ class EditorWindow(QWidget):
             self._guardar()
         elif e.matches(QKeySequence.Undo):
             self._deshacer()
+        elif e.matches(QKeySequence.Redo):
+            self._rehacer()
+        elif e.matches(QKeySequence.Paste):
+            self._pegar_imagen()
         elif e.key() == Qt.Key_Delete and self._canvas.activo is not None:
             self._canvas.items.remove(self._canvas.activo)
             self._canvas.activo = None
             self._canvas.update()
         elif e.key() == Qt.Key_Escape:
-            self.close()
+            # con un texto a medio escribir, esc lo confirma y selecciona;
+            # sin nada pendiente, cierra el editor
+            if self._canvas._editor is not None:
+                self._canvas.finalizar_texto()
+            else:
+                self.close()
         else:
             super().keyPressEvent(e)
 

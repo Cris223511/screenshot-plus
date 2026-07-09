@@ -15,39 +15,22 @@ reiniciar nada.
 import os
 import webbrowser
 
-from PySide6.QtCore import (QEasingCurve, QPoint, QPropertyAnimation, QRectF,
-                            QSize, Qt, Signal)
-from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtCore import (QEasingCurve, QEvent, QPoint, QPropertyAnimation,
+                            QRectF, QSize, Qt, Signal)
+from PySide6.QtGui import QColor, QGuiApplication, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMenu,
                                QPushButton, QWidget)
 
 from src import APP_NAME, APP_REPO
 from src.config import paths, shortcuts
+from src.config.settings import settings
 from src.i18n.translator import t, translator
 from src.ui.themes.theme_manager import theme
 from src.ui.widgets.animated_button import AnimatedButton
 from src.ui.widgets.icons import icon
 
 
-def _logo_redondeado(lado: int) -> QPixmap:
-    """el logo recortado en un cuadrado de esquinas redondeadas.
-
-    la imagen original es cuadrada con fondo blanco; el recorte con máscara
-    la integra al panel sin ese marco duro que se veía antes.
-    """
-    original = QPixmap(paths.resource_path(os.path.join("assets", "logo", "logo.jpg")))
-    escalado = original.scaled(lado * 2, lado * 2, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-    salida = QPixmap(lado * 2, lado * 2)
-    salida.fill(Qt.transparent)
-    pintor = QPainter(salida)
-    pintor.setRenderHint(QPainter.Antialiasing)
-    mascara = QPainterPath()
-    mascara.addRoundedRect(QRectF(0, 0, lado * 2, lado * 2), lado * 0.55, lado * 0.55)
-    pintor.setClipPath(mascara)
-    pintor.drawPixmap(0, 0, escalado)
-    pintor.end()
-    salida.setDevicePixelRatio(2.0)
-    return salida
+from src.ui.widgets.icons import rounded_logo as _logo_redondeado
 
 
 class MainWindow(QWidget):
@@ -62,6 +45,9 @@ class MainWindow(QWidget):
     updates_requested = Signal()
     about_requested = Signal()
     quit_requested = Signal()
+    # avisa cuando el panel pasa a minimizado o vuelve, para que la app
+    # coordine el panel lateral de presentación
+    minimized_changed = Signal(bool)
 
     def __init__(self):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -107,8 +93,9 @@ class MainWindow(QWidget):
 
         fila.addWidget(self._separador())
 
-        # ajustes a la vista, sin esconderlo en el menú
-        self._ajustes = boton(self.options_requested)
+        # el cambio rápido entre tema claro y oscuro; los ajustes viven
+        # dentro del menú, no vale la pena duplicar el botón
+        self._tema = boton(self._alternar_tema)
 
         self._menu_boton = AnimatedButton()
         self._menu_boton.setIconSize(QSize(20, 20))
@@ -166,7 +153,9 @@ class MainWindow(QWidget):
         self._ventana.setIcon(icon("window", color))
         self._scroll.setIcon(icon("scroll", color))
         self._panel_pres.setIcon(icon("panel", color))
-        self._ajustes.setIcon(icon("settings", color))
+        # el botón de tema muestra a dónde vas a cambiar, no dónde estás:
+        # luna en tema claro, sol en tema oscuro
+        self._tema.setIcon(icon("moon" if theme.theme == "light" else "sun", color))
         self._menu_boton.setIcon(icon("menu", color))
         self._pin.setIcon(icon("pin", theme.icon_active_color() if self._pin.isChecked() else color))
         self._minimizar.setIcon(icon("minimize", color))
@@ -181,7 +170,7 @@ class MainWindow(QWidget):
         self._ventana.setToolTip(f'{t("main.tip_window")}  ({atajo("capture_window")})')
         self._scroll.setToolTip(f'{t("main.tip_scroll")}  ({atajo("capture_scroll")})')
         self._panel_pres.setToolTip(f'{t("main.tip_panel")}  ({atajo("zoom_mode")})')
-        self._ajustes.setToolTip(t("menu.options"))
+        self._tema.setToolTip(t("main.tip_theme"))
         self._menu_boton.setToolTip(t("main.tip_menu"))
         self._pin.setToolTip(t("main.tip_pin"))
         self._minimizar.setToolTip(t("main.tip_minimize"))
@@ -199,6 +188,9 @@ class MainWindow(QWidget):
     def refresh_tooltips(self):
         """tras cambiar atajos en opciones, los tooltips muestran los nuevos."""
         self._aplicar_textos()
+
+    def _alternar_tema(self):
+        theme.set_theme("dark" if theme.theme == "light" else "light")
 
     def _alternar_pin(self, fijado: bool):
         """siempre adelante o comportamiento normal, a elección.
@@ -229,8 +221,31 @@ class MainWindow(QWidget):
         pintor.drawPath(camino)
         pintor.end()
 
+    def hideEvent(self, e):
+        # el lugar donde quedó el panel se guarda para reaparecer ahí
+        # mismo, incluso en la próxima sesión
+        settings.set("panel_pos", [self.x(), self.y()])
+        super().hideEvent(e)
+
+    def changeEvent(self, e):
+        if e.type() == QEvent.WindowStateChange:
+            self.minimized_changed.emit(bool(self.windowState() & Qt.WindowMinimized))
+        super().changeEvent(e)
+
+    def _restaurar_posicion(self):
+        """vuelve a la última posición guardada, si sigue dentro de alguna
+        pantalla; un monitor desconectado no debe dejar el panel perdido."""
+        guardada = settings.get("panel_pos")
+        if not guardada or len(guardada) != 2:
+            return
+        destino = QPoint(int(guardada[0]), int(guardada[1]))
+        virtual = QGuiApplication.primaryScreen().virtualGeometry()
+        if virtual.adjusted(0, 0, -60, -30).contains(destino):
+            self.move(destino)
+
     def showEvent(self, e):
         super().showEvent(e)
+        self._restaurar_posicion()
         if self._primera_vez:
             self._primera_vez = False
             self.setWindowOpacity(0.0)

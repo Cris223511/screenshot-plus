@@ -24,6 +24,9 @@ LANGUAGES = {
     "fr": ("Français", "France"),
     "de": ("Deutsch", "Deutschland"),
     "it": ("Italiano", "Italia"),
+    "ja": ("日本語", "日本"),
+    "zh": ("中文", "中国"),
+    "ru": ("Русский", "Россия"),
 }
 
 FALLBACK = "es"
