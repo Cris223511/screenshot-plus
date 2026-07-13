@@ -6,10 +6,11 @@ El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com
 
 ## 1.2.1 (2026-07-13)
 
-Corrección de un error de arranque en el ejecutable, sin cambios de funciones.
+Corrección de un error de arranque en el ejecutable. No hay cambios de funciones respecto a la 1.2.0.
 
-- **Cierre al iniciar:** el ejecutable podía cerrarse nada más abrirse, de forma intermitente, por un choque entre las librerías internas de pynput y PySide6 al importarse. Ahora arranca siempre.
-- La construcción del ejecutable limpia la caché en cada build para evitar paquetes a medias.
+- **Cierre intermitente al iniciar:** el ejecutable podía cerrarse nada más abrirse, unas veces sí y otras no. El origen era un choque entre pynput y PySide6 durante la importación: pynput incluye internamente la librería six, y su importador especial hacía que el sistema de inspección de módulos de PySide6 (shiboken) fallara con un error inesperado al construir la representación textual de ese módulo, lo que tumbaba el arranque antes de mostrar la ventana.
+- **Solución:** se refuerza la inspección de módulos para que trate ese caso como un módulo sin archivo fuente, evitando la representación que reventaba. El arranque queda estable.
+- **Construcción:** el empaquetado limpia la caché de PyInstaller en cada compilación, para descartar paquetes generados a medias que también podían producir un ejecutable defectuoso.
 
 ## 1.2.0 (2026-07-13)
 
