@@ -31,7 +31,7 @@ Tomar una captura, marcarla con una flecha y mandarla no debería requerir tres 
 
 | Versión | Archivo | Estado |
 | ------- | ------- | ------ |
-| 1.2.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.0/ScreenshotPlus.exe) | Disponible |
+| 1.2.1 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.1/ScreenshotPlus.exe) | Disponible |
 
 Basta con descargar el `.exe` y ejecutarlo. No hay instalador ni pasos adicionales; todas las versiones viven en la sección de [releases](https://github.com/Cris223511/screenshot-plus/releases) y los cambios de cada una están en el [historial de cambios](CHANGELOG.md).
 

@@ -31,7 +31,7 @@ Taking a screenshot, marking it with an arrow and sending it should not require 
 
 | Version | File | Status |
 | ------- | ---- | ------ |
-| 1.2.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.0/ScreenshotPlus.exe) | Available |
+| 1.2.1 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.1/ScreenshotPlus.exe) | Available |
 
 Just download the `.exe` and run it. There is no installer and no extra steps; every version lives in the [releases](https://github.com/Cris223511/screenshot-plus/releases) section, and what changed in each one is in the [changelog](CHANGELOG.md).
 
