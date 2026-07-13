@@ -19,7 +19,9 @@ if errorlevel 1 (
 )
 
 echo [3/3] pyinstaller arma el ejecutable...
-pyinstaller --noconfirm --onefile --windowed ^
+rem --clean limpia la cache antes de armar; sin esto, un build incremental
+rem a medias puede producir un exe que falla al importar pynput/pyside
+pyinstaller --noconfirm --clean --onefile --windowed ^
     --name ScreenshotPlus ^
     --icon assets\logo\logo.ico ^
     --add-data "assets;assets" ^
