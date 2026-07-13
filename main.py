@@ -9,11 +9,12 @@ import os
 import sys
 
 # blindaje para el ejecutable empaquetado: el sistema de firmas de pyside
-# (shiboken) intenta inspeccionar cada módulo que se importa, y al toparse
-# con el importador falso de six (que pynput trae adentro) revienta con un
-# AttributeError inesperado que tumba el arranque, a veces sí y a veces no.
-# convertirlo en el TypeError habitual hace que esa comprobación lo ignore
-# sin problema, como con cualquier módulo sin archivo fuente
+# (shiboken) inspecciona cada módulo que se importa y, al toparse con el
+# importador falso de six (que pynput trae adentro), inspect.getfile intenta
+# construir su mensaje de error con repr(módulo); ese repr es el que revienta
+# con un AttributeError inesperado y tumba el arranque, a veces sí y a veces
+# no. se reemplaza getfile por una versión que ante ese caso lanza el
+# TypeError normal SIN pasar por repr, que es lo que pyside sabe ignorar
 import inspect as _inspect
 
 _getfile_original = _inspect.getfile
@@ -22,8 +23,11 @@ _getfile_original = _inspect.getfile
 def _getfile_seguro(objeto):
     try:
         return _getfile_original(objeto)
-    except (AttributeError, TypeError):
-        raise TypeError(f"{objeto!r} no tiene archivo fuente")
+    except Exception:
+        # cualquier fallo (incluido el AttributeError del importador de six)
+        # se reporta como el TypeError normal de "sin archivo fuente"; el
+        # mensaje NO usa repr(objeto), que es justo lo que vuelve a reventar
+        raise TypeError("modulo sin archivo fuente")
 
 
 _inspect.getfile = _getfile_seguro

@@ -4,6 +4,13 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/): el primer número indica cambios mayores, el segundo funciones nuevas y el tercero correcciones.
 
+## 1.2.1 (2026-07-13)
+
+Corrección de un error de arranque en el ejecutable, sin cambios de funciones.
+
+- **Cierre al iniciar:** el ejecutable podía cerrarse nada más abrirse, de forma intermitente, por un choque entre las librerías internas de pynput y PySide6 al importarse. Ahora arranca siempre.
+- La construcción del ejecutable limpia la caché en cada build para evitar paquetes a medias.
+
 ## 1.2.0 (2026-07-13)
 
 La mayor parte de las novedades se concentran en el editor de la captura de región, que incorpora selección múltiple, una herramienta de borrador y un pincel de ocultar reconstruido, además de un manejo del recorte mucho más preciso. La pizarra de presentación hereda las mismas mejoras, y los ajustes de la aplicación suman un capturador de atajos nuevo, la opción de restablecer y un arranque con Windows más discreto. Se corrigen, además, varios errores reportados.
