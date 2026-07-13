@@ -6,7 +6,7 @@ El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com
 
 ## 1.2.0 (2026-07-13)
 
-El grueso del trabajo se centra en el editor de la captura de región, que gana selección múltiple, una herramienta de borrador y un pincel de ocultar reconstruido, además de un manejo del recorte mucho más preciso. La pizarra de presentación hereda las mismas mejoras, y los ajustes de la aplicación suman un capturador de atajos nuevo, opción de restablecer y un arranque con Windows más discreto. Se corrigen, además, varios errores reportados.
+La mayor parte de las novedades se concentran en el editor de la captura de región, que incorpora selección múltiple, una herramienta de borrador y un pincel de ocultar reconstruido, además de un manejo del recorte mucho más preciso. La pizarra de presentación hereda las mismas mejoras, y los ajustes de la aplicación suman un capturador de atajos nuevo, la opción de restablecer y un arranque con Windows más discreto. Se corrigen, además, varios errores reportados.
 
 ### Selección y edición de elementos
 
