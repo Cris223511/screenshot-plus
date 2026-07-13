@@ -6,46 +6,65 @@ El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com
 
 ## 1.2.0 (2026-07-13)
 
-El grueso del trabajo se centra en el editor de la captura de región: se añade la selección múltiple, una herramienta de borrador y un pincel de ocultar reconstruido, junto con mejoras de comportamiento y varias correcciones. La pizarra de presentación y los ajustes generales de la aplicación también reciben cambios.
+El grueso del trabajo se centra en el editor de la captura de región, que gana selección múltiple, una herramienta de borrador y un pincel de ocultar reconstruido, además de un manejo del recorte mucho más preciso. La pizarra de presentación hereda las mismas mejoras, y los ajustes de la aplicación suman un capturador de atajos nuevo, opción de restablecer y un arranque con Windows más discreto. Se corrigen, además, varios errores reportados.
 
-### Editor de captura
+### Selección y edición de elementos
 
-- **Selección múltiple**: con la herramienta de selección, Shift + clic añade o quita elementos, y arrastrar sobre una zona vacía traza un recuadro elástico que selecciona todo lo que abarca.
-- **Edición conjunta**: con varios elementos seleccionados, los cambios de color, grosor u opacidad se aplican a todos a la vez, y la tecla Suprimir los elimina en bloque. La barra muestra únicamente las opciones comunes a la selección.
-- **Herramienta de borrador** (tecla E): elimina las anotaciones que toca, con grosor configurable.
-- **Pincel de ocultar reconstruido**: se dibuja como un trazo y, al soltar, la zona queda pixelada o difuminada, con intensidad y grosor a elección. Deja de acumular efecto al repasar la misma área, no se desborda del contorno y prevalece el trazo superior. No es seleccionable ni se puede mover; se elimina solo con el borrador.
-- **Desplazamiento del recorte mediante un tirador dedicado**, en lugar de arrastrar su interior, para evitar moverlo sin querer.
-- **Redimensionado más robusto**: el recorte se ajusta respecto a un ancla fija, con un tamaño mínimo y con inversión al sobrepasar el lado opuesto, sin bloquearse. La barra de herramientas lo acompaña en tiempo real.
-- **Cursores direccionales** en los tiradores de redimensionado y **lupa de aumento** junto al cursor durante la selección, para precisar el borde.
-- **Barra de opciones independiente**: los controles de cada herramienta aparecen en un panel flotante bajo la barra, que ya no se ensancha; y cuando el recorte queda pegado al borde inferior, la barra pasa a disposición vertical en un lateral.
-- **Atajos de teclado** para cambiar de herramienta (V selección, S formas, L línea, F flecha, B pincel, T texto, P ocultar, E borrador) y **trazo recto** manteniendo Shift en el pincel y el pincel de ocultar.
+- **Selección múltiple:** con la herramienta de selección, *Shift + clic* añade o quita elementos uno a uno, y arrastrar sobre una zona vacía traza un recuadro elástico que toma todo lo que abarca.
+- **Edición conjunta:** con varios elementos seleccionados, los cambios de color, grosor u opacidad se aplican a todos a la vez, y *Suprimir* los elimina en bloque.
+- **Opciones comunes:** al tener seleccionados elementos de distinto tipo, la barra muestra únicamente las opciones que aplican a todos. Por ejemplo, un texto y una línea comparten color y opacidad, pero no grosor, porque el texto no lo tiene.
+- **Atajos de teclado** para cambiar de herramienta al vuelo: *V* selección, *S* formas, *L* línea, *F* flecha, *B* pincel, *T* texto, *P* ocultar y *E* borrador.
+
+### Herramientas nuevas
+
+- **Borrador** (*E*): elimina las anotaciones que su círculo toca, con grosor configurable.
+- **Pincel de ocultar reconstruido:** se dibuja como un trazo (contorno azul) y, al soltar, la zona queda *pixelada* o *difuminada*, a elección, con intensidad y grosor ajustables. No es seleccionable ni se puede mover; se quita únicamente con el borrador.
+- **Trazo recto:** manteniendo *Shift* con el pincel o el pincel de ocultar, el trazo sale recto desde el punto de partida.
+
+### Recorte de la captura
+
+- **Tirador para mover el recorte:** un agarre dedicado desplaza la zona seleccionada, en lugar de arrastrar su interior, para no moverla sin querer al ir a copiar.
+- **Redimensionado firme:** el recorte se ajusta respecto a un ancla fija, con un tamaño mínimo y con inversión al sobrepasar el lado opuesto, sin bloquearse.
+- **Barra que acompaña:** la barra de herramientas se reubica en tiempo real mientras mueves o cambias el tamaño del recorte, sin quedar por encima de él.
+- **Cursores direccionales** en cada tirador de redimensionado, y **lupa de aumento** junto al cursor durante la selección, para acertar el borde exacto.
+- **Círculo de tamaño** bajo el cursor con el pincel de ocultar y el borrador, para ver el área que van a cubrir.
+
+### Interfaz del editor
+
+- **Barra de opciones independiente:** los controles de cada herramienta pasan a un panel flotante bajo la barra, de modo que la barra de herramientas ya no se ensancha al mostrarlos.
+- **Barra vertical:** cuando el recorte queda pegado al borde inferior de la pantalla, la barra se coloca en vertical a un lado.
+- **Confirmación al descartar:** al salir con *Esc* habiendo dibujado algo, se pregunta antes de perderlo, con la opción de no volver a preguntar (compartida con la pizarra de presentación).
 
 ### Modo presentación
 
 - Incorpora las mismas mejoras del pincel de ocultar y de la edición conjunta con opciones comunes.
 - El trazo de ocultar tampoco se puede mover; solo se elimina con el borrador.
-- Los atajos del panel se desactivan únicamente ante juegos y aplicaciones a pantalla completa, no ante un navegador a pantalla completa.
+- Los atajos del panel se desactivan únicamente ante juegos y aplicaciones a pantalla completa; ante un navegador a pantalla completa siguen funcionando.
 
-### Aplicación y opciones
+### Aplicación y sistema
 
-- Los atajos de captura funcionan en todo momento, incluso sobre juegos y navegadores a pantalla completa.
-- El arranque automático con Windows abre la aplicación minimizada en la bandeja, sin mostrar el panel.
-- Nueva opción **Restablecer** en la configuración, que devuelve los ajustes generales a su estado inicial sin eliminar ninguna captura ni modificar la carpeta de guardado. Se añade además un botón para restablecer solo los atajos.
-- **Nuevo capturador de atajos**, con un indicador de grabación y la posibilidad de cancelar.
-- Las opciones de cada herramienta dejan de guardarse en disco y se reinician en cada sesión; la configuración general sí se conserva.
-- El anclaje del panel al frente queda desactivado por defecto y se recuerdan las posiciones de los paneles entre sesiones.
-- El desplazamiento del selector de idiomas ahora es suave, con resaltado al pasar el cursor.
+- **Captura siempre disponible:** los atajos de captura funcionan en todo momento, incluso sobre juegos y navegadores a pantalla completa.
+- **Arranque discreto:** cuando Windows abre la aplicación al iniciar sesión, esta se queda minimizada en la bandeja, sin mostrar el panel.
+- **Foco devuelto:** al terminar una captura, el teclado vuelve a la ventana en la que estabas (el navegador, un documento).
+- **Anclaje del panel** al frente desactivado por defecto, y **posiciones de los paneles** recordadas entre sesiones.
+
+### Opciones
+
+- **Restablecer:** un botón devuelve los ajustes generales a su estado inicial. *No elimina ninguna captura ni modifica la carpeta de guardado.* Se añade, aparte, un botón para restablecer solo los atajos.
+- **Capturador de atajos nuevo:** un campo con indicador de grabación que late suave, muestra las teclas conforme se pulsan y permite cancelar.
+- **Ajustes de herramienta por sesión:** el color, el grosor, la intensidad del pixelado y demás opciones de las herramientas dejan de guardarse en disco y se reinician en cada sesión; la configuración general sí se conserva.
+- **Selector de idiomas** con desplazamiento suave y resaltado al pasar el cursor.
 
 ### Correcciones
 
-- **Pixelado que se acumulaba**: al repasar la misma zona con el pincel de ocultar, el efecto se intensificaba; ahora se mantiene igual y, al variar la intensidad, prevalece el trazo superior.
-- **Difuminado fuera del contorno**: el efecto podía pintarse más allá de la selección; ahora queda recortado a ella.
-- **Pincel que rellenaba en negro**: un trazo que se cruzaba consigo mismo rellenaba su interior mientras se dibujaba; ahora solo traza la línea.
-- **Redimensionado que se bloqueaba**: al reducir mucho el recorte o cruzar el lado opuesto, el ajuste se trababa; ahora fluye e invierte el sentido, respetando un tamaño mínimo.
-- **Panel minimizado que reaparecía**: volvía a mostrarse al capturar, copiar o cerrar; ahora permanece oculto hasta que se abre a propósito.
-- **Guardado que cerraba el editor**: Ctrl + S cerraba la edición; ahora el diálogo se abre encima y permite continuar.
-- **Esc sin efecto sin selección**: no cancelaba la captura hasta interactuar con el ratón; ahora cancela desde el primer momento.
-- **Foco perdido tras capturar**: el foco de teclado no regresaba a la ventana anterior; ahora vuelve a la aplicación en la que estabas.
+- **Pixelado que se acumulaba:** al repasar la misma zona con el pincel de ocultar, el efecto se intensificaba. Ahora se mantiene igual y, al variar la intensidad, prevalece el trazo superior.
+- **Difuminado fuera del contorno:** el efecto podía pintarse más allá de la selección. Ahora queda recortado a ella.
+- **Pincel que rellenaba en negro:** un trazo que se cruzaba consigo mismo rellenaba su interior mientras se dibujaba. Ahora solo traza la línea.
+- **Redimensionado que se bloqueaba:** al reducir mucho el recorte o cruzar el lado opuesto, el ajuste se trababa. Ahora fluye e invierte el sentido, respetando un tamaño mínimo.
+- **Panel minimizado que reaparecía:** volvía a mostrarse al capturar, copiar o cerrar. Ahora permanece oculto hasta que se abre a propósito.
+- **Guardado que cerraba el editor:** *Ctrl + S* cerraba la edición. Ahora el diálogo se abre encima y permite continuar.
+- **Esc sin efecto sin selección:** no cancelaba la captura hasta interactuar con el ratón. Ahora cancela desde el primer momento.
+- **Foco perdido tras capturar:** el teclado no regresaba a la ventana anterior. Ahora vuelve a la aplicación en la que estabas.
 
 ## 1.1.0 (2026-07-09)
 
