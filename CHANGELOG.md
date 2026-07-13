@@ -4,7 +4,7 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/): el primer número indica cambios mayores, el segundo funciones nuevas y el tercero correcciones.
 
-## 1.2.0 — 2026-07-13
+## 1.2.0 (2026-07-13)
 
 El grueso del trabajo se centra en el editor de la captura de región: se añade la selección múltiple, una herramienta de borrador y un pincel de ocultar reconstruido, junto con mejoras de comportamiento y varias correcciones. La pizarra de presentación y los ajustes generales de la aplicación también reciben cambios.
 
@@ -38,15 +38,16 @@ El grueso del trabajo se centra en el editor de la captura de región: se añade
 
 ### Correcciones
 
-- El pixelado deja de intensificarse al repasar la misma zona; al variar la intensidad, prevalece el trazo superior.
-- El difuminado ya no se mostraba fuera del contorno de la selección.
-- El pincel dejaba de rellenar en negro los trazos que se cruzaban consigo mismos.
-- El panel minimizado dejaba de reaparecer al capturar, copiar o cerrar.
-- Guardar con Ctrl + S ya no cierra el editor; el diálogo se abre encima y permite continuar.
-- La tecla Esc cancela la captura desde el inicio, aunque no haya ninguna selección.
-- El foco de teclado regresa a la ventana anterior al finalizar la captura.
+- **Pixelado que se acumulaba**: al repasar la misma zona con el pincel de ocultar, el efecto se intensificaba; ahora se mantiene igual y, al variar la intensidad, prevalece el trazo superior.
+- **Difuminado fuera del contorno**: el efecto podía pintarse más allá de la selección; ahora queda recortado a ella.
+- **Pincel que rellenaba en negro**: un trazo que se cruzaba consigo mismo rellenaba su interior mientras se dibujaba; ahora solo traza la línea.
+- **Redimensionado que se bloqueaba**: al reducir mucho el recorte o cruzar el lado opuesto, el ajuste se trababa; ahora fluye e invierte el sentido, respetando un tamaño mínimo.
+- **Panel minimizado que reaparecía**: volvía a mostrarse al capturar, copiar o cerrar; ahora permanece oculto hasta que se abre a propósito.
+- **Guardado que cerraba el editor**: Ctrl + S cerraba la edición; ahora el diálogo se abre encima y permite continuar.
+- **Esc sin efecto sin selección**: no cancelaba la captura hasta interactuar con el ratón; ahora cancela desde el primer momento.
+- **Foco perdido tras capturar**: el foco de teclado no regresaba a la ventana anterior; ahora vuelve a la aplicación en la que estabas.
 
-## 1.1.0 — 2026-07-09
+## 1.1.0 (2026-07-09)
 
 El editor de anotaciones y la pizarra de presentación se amplían de forma considerable, y se suman formatos de guardado e idiomas.
 
@@ -55,7 +56,7 @@ El editor de anotaciones y la pizarra de presentación se amplían de forma cons
 - **Catorce formatos de guardado** (incluidos WEBP, AVIF, HEIC e ICO) y **tres idiomas nuevos** (japonés, chino y ruso, nueve en total).
 - Selector de color en el idioma de la aplicación, tooltips y manual con diseño propio, tema oscuro homogéneo en los paneles y nuevo logotipo.
 
-## 1.0.0 — 2026-07-05
+## 1.0.0 (2026-07-05)
 
 Reúne todas las funciones previstas para la aplicación: captura, edición, presentación y utilidades del sistema.
 
