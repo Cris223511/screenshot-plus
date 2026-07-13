@@ -8,11 +8,28 @@ autoarranque y el bucle de eventos. toda la lógica vive en src/.
 import os
 import sys
 
-# pynput tiene que entrar antes que pyside6: el sistema de firmas de
-# shiboken se tropieza con el importador de six (que pynput trae adentro)
-# cuando llega en el orden inverso, y la app moriría recién al registrar
-# los atajos globales, que es mucho más difícil de diagnosticar
-import pynput  # noqa: F401
+# blindaje para el ejecutable empaquetado: el sistema de firmas de pyside
+# (shiboken) intenta inspeccionar cada módulo que se importa, y al toparse
+# con el importador falso de six (que pynput trae adentro) revienta con un
+# AttributeError inesperado que tumba el arranque, a veces sí y a veces no.
+# convertirlo en el TypeError habitual hace que esa comprobación lo ignore
+# sin problema, como con cualquier módulo sin archivo fuente
+import inspect as _inspect
+
+_getfile_original = _inspect.getfile
+
+
+def _getfile_seguro(objeto):
+    try:
+        return _getfile_original(objeto)
+    except (AttributeError, TypeError):
+        raise TypeError(f"{objeto!r} no tiene archivo fuente")
+
+
+_inspect.getfile = _getfile_seguro
+
+# además, pynput entra antes que pyside6 para reducir el choque de importación
+import pynput  # noqa: F401, E402
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
