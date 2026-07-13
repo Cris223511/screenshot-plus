@@ -32,7 +32,13 @@ _DEFAULTS = {
     "confirm_discard_board": True,   # preguntar antes de perder lo dibujado en la pizarra
     "open_folder_after_save": False, # abrir el explorador señalando la captura guardada
     "board_master_key": ".",         # la tecla que enciende los atajos globales del panel
+    "panel_pinned": False,           # el panel principal siempre adelante, apagado por defecto
+    "panel_pos": None,               # última posición del panel principal
+    "board_pos": None,               # última posición del panel lateral de presentación
 }
+# nota: las opciones de las herramientas (efecto e intensidad del pixelado,
+# grosor del borrador, color y grosor del trazo, etc.) no viven aquí a
+# propósito: se reinician en cada sesión, no se guardan a disco
 
 
 class Settings:
@@ -70,6 +76,21 @@ class Settings:
 
     def set(self, clave, valor):
         self._data[clave] = valor
+        self._save()
+
+    def reset(self):
+        """devuelve la configuración a sus valores iniciales.
+
+        solo reescribe las preferencias: idioma, tema, atajos, comportamiento
+        y demás. NUNCA borra capturas ni ningún archivo, y respeta la carpeta
+        de guardado que el usuario haya elegido, que no tiene por qué perder.
+        """
+        conservar = ("save_dir", "last_save_dir")
+        guardados = {c: self._data.get(c) for c in conservar}
+        self._data = dict(_DEFAULTS)
+        for c, valor in guardados.items():
+            if valor:
+                self._data[c] = valor
         self._save()
 
     def save_dir(self) -> str:

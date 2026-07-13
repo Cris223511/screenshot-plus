@@ -1,14 +1,10 @@
-"""ventanita de propiedades del modo presentación.
+"""panel de propiedades del modo presentación.
 
-flota al costado del panel de herramientas y muestra solo lo que aplica a
-la herramienta activa: colores con recientes y código hex, grosor, estilo
-de trazo, opacidad, extremos de flecha y tipografía completa. cuando hay
-elementos seleccionados con V, los controles cargan los valores del
-elemento y cualquier cambio lo edita en vivo.
-
-todos los cambios salen por una sola señal genérica (nombre, valor); el
-coordinador del modo decide cómo aplicarla a los valores por defecto y a
-la selección.
+flota junto a la barra de herramientas y muestra solo los controles que
+aplican a la herramienta activa (color, grosor, trazo, opacidad,
+tipografía, opciones del pincel de ocultar). con un elemento seleccionado
+carga sus valores y lo edita en vivo. todo sale por una señal genérica
+(nombre, valor) que el coordinador del modo aplica.
 """
 
 from PySide6.QtCore import (QEasingCurve, QPropertyAnimation, QRectF, QSize,
@@ -299,6 +295,24 @@ class PropertiesPanel(QWidget):
         self._caja_opacidad.setLayout(fila_op)
         columna.addWidget(self._caja_opacidad)
 
+        # pincel de ocultar: el efecto (pixelar o difuminar) y su
+        # intensidad; el grosor del trazo reutiliza el slider de arriba
+        self._rotulo_pixel_modo = rotulo("pixel.pixelate")
+        self._rotulo_pixel_modo.setText(t("pixel.pixelate") + " / " + t("pixel.blur"))
+        self._pixel_modo = QComboBox()
+        self._pixel_modo.addItem(t("pixel.pixelate"), "pixelate")
+        self._pixel_modo.addItem(t("pixel.blur"), "blur")
+        self._pixel_modo.currentIndexChanged.connect(
+            lambda i: self.prop_changed.emit("pixel_mode", self._pixel_modo.itemData(i)))
+        columna.addWidget(self._pixel_modo)
+        self._rotulo_pixel_cant = rotulo("pixel.amount")
+        self._pixel_cant = QSlider(Qt.Horizontal)
+        self._pixel_cant.setRange(2, 40)
+        self._pixel_cant.setValue(an.PIXEL_CANTIDAD)
+        self._pixel_cant.valueChanged.connect(
+            lambda v: self.prop_changed.emit("pixel_amount", v))
+        columna.addWidget(self._pixel_cant)
+
         columna.addStretch()
 
     # ------------------------------------------------------------------ #
@@ -408,7 +422,14 @@ class PropertiesPanel(QWidget):
         reales; las señales se silencian durante la carga para no disparar
         cambios fantasma.
         """
+        # con varios elementos tomados, se muestran solo las opciones comunes
+        # a todos (la intersección), no las de la herramienta
+        if items and len(items) > 1:
+            self._mostrar_para_varios(items)
+            return
+
         es_laser = modo == "laser"
+        es_pixel = modo == "pixelate"
         es_trazo = modo in ("brush", "highlight", "line", "arrow", "shape",
                             "select") or es_laser
         es_lineal = modo in ("line", "arrow")
@@ -417,8 +438,12 @@ class PropertiesPanel(QWidget):
         if item is not None:
             es_lineal = isinstance(item, an.LineItem)
             es_texto = isinstance(item, an.TextItem)
+            es_pixel = isinstance(item, an.PixelateItem)
+            # un trazo de ocultar seleccionado también quiere ver su grosor
+            if es_pixel:
+                es_trazo = True
 
-        con_color = modo != "select" or bool(items)
+        con_color = (modo != "select" or bool(items)) and not es_pixel
         for w in (self._rotulo_color, self._caja_colores, self._caja_hex):
             w.setVisible(con_color)
         self._caja_recientes.setVisible(con_color and bool(settings.get("recent_colors", [])))
@@ -426,7 +451,11 @@ class PropertiesPanel(QWidget):
 
         es_imagen = isinstance(item, an.ImageItem)
         for w in (self._rotulo_grosor, self._grosor):
-            w.setVisible(es_trazo and not es_texto and not es_imagen)
+            w.setVisible((es_trazo or es_pixel) and not es_texto and not es_imagen)
+        # el efecto e intensidad del pincel de ocultar solo con esa herramienta
+        for w in (self._rotulo_pixel_modo, self._pixel_modo,
+                  self._rotulo_pixel_cant, self._pixel_cant):
+            w.setVisible(es_pixel)
         # el láser solo entiende de color y grosor; ni trazos ni opacidad
         for w in (self._rotulo_trazo, self._caja_trazo):
             w.setVisible(es_trazo and not es_texto and not es_imagen and not es_laser)
@@ -439,10 +468,57 @@ class PropertiesPanel(QWidget):
                   self._sombra, self._contorno):
             w.setVisible(es_texto)
         for w in (self._rotulo_opacidad, self._caja_opacidad):
-            w.setVisible((modo != "select" or bool(items)) and not es_laser)
+            w.setVisible((modo != "select" or bool(items)) and not es_laser and not es_pixel)
 
         if item is not None:
             self._cargar_de(item)
+        self.adjustSize()
+
+    def _mostrar_para_varios(self, items: list):
+        """con varios elementos, solo asoman los controles que sirven para
+        todos a la vez: color si ninguno es imagen, grosor si ninguno es
+        texto, tipografía solo si todos son texto, etc."""
+        def apoya(it, cual):
+            if cual == "color":
+                return not isinstance(it, an.ImageItem)
+            if cual == "grosor":
+                return not isinstance(it, (an.TextItem, an.ImageItem))
+            if cual == "dash":
+                return isinstance(it, (an.ShapeItem, an.LineItem)) and not isinstance(it, an.ImageItem)
+            if cual == "caps":
+                return isinstance(it, an.LineItem)
+            if cual == "texto":
+                return isinstance(it, an.TextItem)
+            return False
+
+        color = all(apoya(i, "color") for i in items)
+        grosor = all(apoya(i, "grosor") for i in items)
+        dash = all(apoya(i, "dash") for i in items)
+        caps = all(apoya(i, "caps") for i in items)
+        texto = all(apoya(i, "texto") for i in items)
+
+        for w in (self._rotulo_color, self._caja_colores, self._caja_hex):
+            w.setVisible(color)
+        self._caja_recientes.setVisible(color and bool(settings.get("recent_colors", [])))
+        self._rotulo_recientes.setVisible(self._caja_recientes.isVisible())
+        for w in (self._rotulo_grosor, self._grosor):
+            w.setVisible(grosor)
+        for w in (self._rotulo_pixel_modo, self._pixel_modo,
+                  self._rotulo_pixel_cant, self._pixel_cant):
+            w.setVisible(False)
+        for w in (self._rotulo_trazo, self._caja_trazo):
+            w.setVisible(dash)
+        for w in (self._rotulo_cap_i, self._caja_cap_i, self._rotulo_cap_f, self._caja_cap_f):
+            w.setVisible(caps)
+        for w in (self._rotulo_fuente, self._fuente, self._caja_texto,
+                  self._rotulo_espaciado, self._espaciado,
+                  self._rotulo_rotacion, self._caja_rotacion,
+                  self._rotulo_fondo, self._caja_fondo,
+                  self._sombra, self._contorno):
+            w.setVisible(texto)
+        # la opacidad sirve para cualquier trazo, figura o texto
+        for w in (self._rotulo_opacidad, self._caja_opacidad):
+            w.setVisible(True)
         self.adjustSize()
 
     def _cargar_de(self, item: an.Item):
@@ -454,6 +530,14 @@ class PropertiesPanel(QWidget):
             c.blockSignals(True)
         self._grosor.setValue(int(item.width))
         self._marcar_grupo(self._trazo_botones, item.dash)
+        if isinstance(item, an.PixelateItem):
+            self._pixel_modo.blockSignals(True)
+            self._pixel_cant.blockSignals(True)
+            self._pixel_modo.setCurrentIndex(
+                max(0, self._pixel_modo.findData(item.mode)))
+            self._pixel_cant.setValue(int(item.amount))
+            self._pixel_modo.blockSignals(False)
+            self._pixel_cant.blockSignals(False)
         self._opacidad.setValue(int(item.opacity * 100))
         self._valor_op.setText(f"{int(item.opacity * 100)}%")
         self._hex.setText(item.color.name())
@@ -492,6 +576,13 @@ class PropertiesPanel(QWidget):
             c.blockSignals(True)
         self._grosor.setValue(int(defectos.get("width", 4)))
         self._marcar_grupo(self._trazo_botones, defectos.get("dash", "solid"))
+        self._pixel_modo.blockSignals(True)
+        self._pixel_cant.blockSignals(True)
+        self._pixel_modo.setCurrentIndex(
+            max(0, self._pixel_modo.findData(defectos.get("pixel_mode", "pixelate"))))
+        self._pixel_cant.setValue(int(defectos.get("pixel_amount", 12)))
+        self._pixel_modo.blockSignals(False)
+        self._pixel_cant.blockSignals(False)
         self._marcar_grupo(self._cap_i_botones, defectos.get("cap_start", "none"))
         self._marcar_grupo(self._cap_f_botones, defectos.get("cap_end", "arrow_filled"))
         opacidad = int(defectos.get("opacity", 1.0) * 100)

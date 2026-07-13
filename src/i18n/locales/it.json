@@ -170,5 +170,16 @@
   "prop.bg_rounded": "Arrotondato",
   "prop.shadow": "Ombra del testo",
   "prop.outline": "Contorno del testo",
-  "prop.bg_color": "Colore dello sfondo"
+  "prop.bg_color": "Colore dello sfondo",
+  "pixel.pixelate": "Pixella",
+  "pixel.blur": "Sfoca",
+  "pixel.amount": "Intensità",
+  "pixel.brush": "Spessore",
+  "set.reset": "Ripristina tutto",
+  "set.reset_confirm": "Le impostazioni generali (lingua, tema, scorciatoie, comportamento) torneranno com'erano all'inizio. Nessuna cattura viene eliminata e la cartella di salvataggio non cambia. Continuare?",
+  "set.reset_yes": "Ripristina",
+  "set.reset_shortcuts": "Ripristina scorciatoie",
+  "set.recording": "Registrazione… premi la combinazione",
+  "set.no_shortcut": "Non assegnato",
+  "set.shortcut_hint": "Clicca una scorciatoia e premi la combinazione (un modificatore come Alt o Ctrl più un tasto). Esc annulla."
 }

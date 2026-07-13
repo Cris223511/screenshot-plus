@@ -7,6 +7,7 @@ este módulo decide qué pasa con cada una.
 """
 
 import os
+import sys
 
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QApplication, QFileDialog
@@ -26,6 +27,7 @@ from src.ui.notifications import notify
 from src.ui.overlays.selection_overlay import SelectionOverlay
 from src.ui.overlays.zoom_overlay import PresentationMode
 from src.ui.tray_icon import TrayIcon
+from src.utils import autostart
 from src.utils.hotkeys import HotkeyManager
 
 # pequeña pausa entre ocultar el panel y fotografiar la pantalla, para que
@@ -49,8 +51,18 @@ class ScreenshotApp(QObject):
         self._conectar_bandeja()
         self._conectar_atajos()
 
+        # si el registro de arranque automático sigue apuntando a una versión
+        # vieja del comando, se refresca para que lleve la bandera de bandeja
+        if settings.get("autostart", False):
+            autostart.enable()
+
         self.tray.show()
-        if not settings.get("start_in_tray", False):
+        # arrancar oculto en la bandeja cuando lo lanzó windows al encender
+        # (viene con la bandera) o cuando el usuario lo pidió en opciones; el
+        # pin no influye, esto solo decide si el panel se muestra o no
+        arranque_bandeja = (autostart.ARG_BANDEJA in sys.argv
+                            or settings.get("start_in_tray", False))
+        if not arranque_bandeja:
             self.window.show()
 
         # el intento de excluir el panel de las capturas casi siempre va a
@@ -118,9 +130,8 @@ class ScreenshotApp(QObject):
     def _sincronizar_minimizado(self, minimizada: bool):
         """el panel lateral acompaña la minimización del principal.
 
-        la regla la puso el dueño del producto: al minimizar la app se van
-        los dos paneles, salvo el que tenga su pin puesto. como el botón de
-        minimizar vive en el panel principal, ese siempre se minimiza.
+        al minimizar la app se ocultan ambos paneles, salvo el que tenga el
+        pin puesto para quedarse siempre adelante.
         """
         modo = self._presentacion
         if modo is None:
@@ -130,7 +141,9 @@ class ScreenshotApp(QObject):
                 modo.toolbar.hide()
                 self._lateral_escondido = True
         elif getattr(self, "_lateral_escondido", False):
-            modo.toolbar.show()
+            # respeta el chip: si el usuario había recogido el panel, no se
+            # resucita al volver de minimizar la ventana principal
+            modo.toolbar.mostrar_si_procede()
             self._lateral_escondido = False
 
     # ------------------------------------------------------------------ #
@@ -149,6 +162,9 @@ class ScreenshotApp(QObject):
         pausado = self._presentacion is not None and self._presentacion.overlay is not None
         if self._overlay is not None or pausado:
             return
+        # se recuerda la ventana en la que estaba el usuario para devolverle
+        # el foco cuando termine con la captura
+        self._ventana_previa = capture.foreground_window()
         self._panel_estaba_visible = self.window.isVisible()
         debe_ocultar = (settings.get("hide_main_on_capture", True)
                         and self._panel_estaba_visible
@@ -163,6 +179,10 @@ class ScreenshotApp(QObject):
         self._overlay = None
         if self._panel_estaba_visible and not self.window.isVisible():
             self.window.show()
+        # el foco regresa a la aplicación previa (el navegador, un editor),
+        # de modo que el usuario siga donde estaba sin un clic extra
+        capture.restore_foreground(getattr(self, "_ventana_previa", None))
+        self._ventana_previa = None
 
     def iniciar_captura_region(self):
         self._ocultar_y(self._abrir_overlay_seleccion)

@@ -31,9 +31,9 @@ Taking a screenshot, marking it with an arrow and sending it should not require 
 
 | Version | File | Status |
 | ------- | ---- | ------ |
-| 1.1.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.1.0/ScreenshotPlus.exe) | Available |
+| 1.2.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.0/ScreenshotPlus.exe) | Available |
 
-Just download the `.exe` and run it. There is no installer and no extra steps; every version lives in the [releases](https://github.com/Cris223511/screenshot-plus/releases) section.
+Just download the `.exe` and run it. There is no installer and no extra steps; every version lives in the [releases](https://github.com/Cris223511/screenshot-plus/releases) section, and what changed in each one is in the [changelog](CHANGELOG.md).
 
 > **About the Windows SmartScreen warning.** The first time you run the file, Windows may show "Windows protected your PC" with an unknown publisher. That is the normal behavior for any open source executable without a code signing certificate (a paid service); it does not indicate any problem with the application, whose full source code you can review in this repository. To continue: **More info → Run anyway**. The warning fades away over time as more people run the same file.
 
@@ -51,11 +51,14 @@ Just download the `.exe` and run it. There is no installer and no extra steps; e
 
 - **Shapes** (8): rectangle, rounded rectangle, ellipse, triangle, diamond, pentagon, hexagon and star.
 - **Lines and arrows** with a configurable cap on each end independently (none, arrow, filled arrow, dot, square, diamond) and five stroke styles (solid, dashed, dotted, dash-dot, dash-dot-dot).
-- **Brush** for free drawing with adjustable thickness.
+- **Brush** for free drawing with adjustable thickness; hold Shift for a straight stroke.
 - **Text** with every system font, size, bold, italic, underline, strikethrough, letter spacing, rotation, background (solid or rounded with its own color), shadow and outline. One click selects it, double click reopens its content.
-- **Pixelate** to hide sensitive data; **opacity** for any element; and **images** pasted with Ctrl + V.
+- **Hide brush** to cover sensitive data: paint a stroke and on release it becomes **pixelated or blurred**, with adjustable intensity and thickness. Plus **opacity** for any element and **images** pasted with Ctrl + V.
+- **Eraser** to remove annotations by touching them, with adjustable thickness.
+- **Multi-selection**: Shift + click adds or removes elements, or wrap them with a rubber band, then edit or delete them all at once. The toolbar only shows the options common to the selection.
 - **Everything stays editable**: any drawn element can be selected, moved, resized by its handles, and restyled from the same toolbar, live. It stays selected right after drawing, ready to place.
 - **Design-style modifiers**: Shift straightens lines (15° steps), makes shapes proportional, keeps the ratio when resizing and moves in a straight line; Alt grows from the center; Alt + drag duplicates the element.
+- **Letter shortcuts** to switch tools on the fly (V select, S shapes, L line, F arrow, B brush, T text, P hide, E eraser).
 - Undo (Ctrl + Z, moves included), redo (Ctrl + Y), delete element (Del), reset all, copy (Ctrl + C) and save (Ctrl + S).
 
 ### Presentation whiteboard
@@ -72,12 +75,13 @@ Built for classes and meetings: a floating side panel that pauses the screen whe
 
 ### Application
 
-- **Global hotkeys** that work even with the app in the tray, all customizable, muted while a fullscreen game is in front.
+- **Global hotkeys** that work at all times, even over fullscreen games and browsers, all customizable. Only the presentation whiteboard mutes itself for a fullscreen game or app (not for a browser).
 - **9 languages**: Spanish (default), English, Portuguese, French, German, Italian, Japanese, Chinese and Russian. Switching applies instantly, no restart.
 - **14 save formats**: PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO and TGA, with adjustable quality where it applies and an option to open the folder after saving.
 - **Light and dark themes**, always-on-top pin, custom animated notifications and tooltips.
 - **Single instance**: running the `.exe` twice does not duplicate the app, it brings up the one already running.
-- **Start with Windows** and start minimized to the tray, both optional.
+- **Start with Windows** (opening minimized to the tray) and start straight in the tray, both optional.
+- **Reset settings** from Options, without deleting any screenshot or changing your save folder.
 - **Update checking** against this repository's releases, with no servers of its own and no telemetry.
 - **Built-in user manual and about window**: nothing redirects you outside the application.
 - The save folder is remembered between sessions; the last one you use is the next one to open.
@@ -148,7 +152,7 @@ screenshot-plus/
 └── src/
     ├── config/                 preferences, safe paths and hotkeys
     ├── core/                   capture, scroll stitching, clipboard, saving
-    ├── i18n/                   translator and the 6 languages as json
+    ├── i18n/                   translator and the 9 languages as json
     ├── ui/
     │   ├── overlays/           selection editor, presentation mode, floating panel
     │   ├── dialogs/            options, about, manual, language

@@ -1,17 +1,9 @@
-"""panel flotante del modo presentación.
+"""barra de herramientas flotante del modo presentación.
 
-una columna de bordes redondos pegada al borde derecho (arrastrable desde
-su agarre superior o desde cualquier zona libre, y fijable siempre
-adelante con el pin). cada herramienta muestra su letra de atajo en gris
-chiquito bajo el ícono, al estilo de los editores de pizarra conocidos:
-Z pausa y zoom, V selecciona, H mano, L láser, P pincel, R resaltador,
-I línea, F flecha, E borrador y T texto.
-
-al activar cualquiera, la pantalla se pausa y sobre esa foto se dibuja,
-se edita y se captura; al desactivarla o presionar esc se vuelve al
-escritorio normal. los tooltips están forzados a mostrarse siempre: este
-panel vive por encima de otras aplicaciones y qt, por defecto, se los
-calla cuando la app no tiene el foco.
+es una columna de botones que vive sobre las demás aplicaciones,
+arrastrable y fijable con el pin. cada botón activa una herramienta de la
+pizarra y muestra su letra de atajo debajo del ícono. puede recogerse en
+un chip para quitarla de en medio sin cerrar la pizarra.
 """
 
 from PySide6.QtCore import (QEasingCurve, QPoint, QPropertyAnimation, QRectF,
@@ -31,7 +23,7 @@ from src.ui.widgets.icons import icon
 # opciones y acá se leen las vigentes
 DEFAULT_KEYS = {"zoom": "Z", "select": "V", "hand": "H", "laser": "L",
                 "brush": "P", "highlight": "R", "line": "I", "arrow": "F",
-                "shape": "S", "eraser": "E", "text": "T"}
+                "shape": "S", "eraser": "E", "text": "T", "pixelate": "X"}
 
 
 def board_key(modo: str) -> str:
@@ -64,6 +56,9 @@ class FloatingToolbar(QWidget):
         self._arrastre: QPoint | None = None
         self._activo = "none"
         self._chip: _RestoreChip | None = None
+        # con el panel recogido en el chip, nada debe volver a mostrarlo
+        # salvo un clic del usuario sobre ese chip
+        self._minimizado = False
         # cada botón registra su ícono para repintarse al cambiar de tema
         self._recolor: dict = {}
         theme.theme_changed.connect(self._refrescar_tema)
@@ -114,8 +109,8 @@ class FloatingToolbar(QWidget):
             columna.addWidget(linea)
 
         # arriba las herramientas de navegación (zoom, selección, mano) y
-        # abajo las de dibujo en el orden que pidió el dueño: borrador,
-        # lápiz, línea, flecha, figura, texto, resaltador y láser
+        # abajo las de dibujo: borrador, lápiz, línea, flecha, figura,
+        # texto, pincel de ocultar, resaltador y láser
         self._modos["zoom"] = boton("zoom", t("zoom.live"), board_key("zoom"), True)
         self._modos["select"] = boton("select", t("tool.select"), board_key("select"), True)
         self._modos["hand"] = boton("hand", t("zoom.hand"), board_key("hand"), True)
@@ -127,6 +122,7 @@ class FloatingToolbar(QWidget):
         self._modos["shape"] = boton("shape-rect", t("tool.shapes"), board_key("shape"), True)
         self._menu_formas(self._modos["shape"])
         self._modos["text"] = boton("text", t("tool.text"), board_key("text"), True)
+        self._modos["pixelate"] = boton("pixelate", t("tool.pixelate"), board_key("pixelate"), True)
         self._modos["highlight"] = boton("highlighter", t("zoom.highlight"), board_key("highlight"), True)
         self._modos["laser"] = boton("laser", t("zoom.laser"), board_key("laser"), True)
         separador()
@@ -188,10 +184,21 @@ class FloatingToolbar(QWidget):
             self.set_checked_silent("shape")
 
     def _acomodar_derecha(self):
-        """posición inicial: centrado verticalmente contra el borde derecho."""
+        """posición inicial: la última que el usuario dejó, si sigue dentro
+        de pantalla; de lo contrario, centrado contra el borde derecho."""
+        guardada = settings.get("board_pos")
+        if guardada and len(guardada) == 2:
+            destino = QPoint(int(guardada[0]), int(guardada[1]))
+            virtual = QGuiApplication.primaryScreen().virtualGeometry()
+            if virtual.adjusted(0, 0, -40, -40).contains(destino):
+                self.move(destino)
+                return
         pantalla = QGuiApplication.primaryScreen().availableGeometry()
         self.move(pantalla.right() - self.width() - 16,
                   pantalla.center().y() - self.height() // 2)
+
+    def _guardar_pos(self):
+        settings.set("board_pos", [self.x(), self.y()])
 
     def minimizar(self):
         """el panel se recoge en un chip flotante; el chip lo restaura.
@@ -201,6 +208,8 @@ class FloatingToolbar(QWidget):
         aviso recuerda que las herramientas siguen a un alt+letra de
         distancia, que si no nadie lo adivina.
         """
+        self._guardar_pos()
+        self._minimizado = True
         if self._chip is None:
             self._chip = _RestoreChip(self)
         self._chip.move(self.x() + (self.width() - self._chip.width()) // 2, self.y())
@@ -210,9 +219,17 @@ class FloatingToolbar(QWidget):
         notify(t("zoom.chip_tip"), "panel")
 
     def restaurar(self):
+        self._minimizado = False
         if self._chip is not None:
             self._chip.hide()
         self.show()
+
+    def mostrar_si_procede(self):
+        """vuelve a mostrar el panel solo si el usuario no lo minimizó; lo
+        usan las operaciones que reactivan la pizarra para no resucitar un
+        panel que el usuario recogió a propósito."""
+        if not self._minimizado:
+            self.show()
 
     def set_mode(self, nombre: str):
         """activa una herramienta; funcionan como radio, no como toggle.
@@ -335,6 +352,9 @@ class FloatingToolbar(QWidget):
             self.move(e.globalPosition().toPoint() - self._arrastre)
 
     def mouseReleaseEvent(self, _):
+        if self._arrastre is not None:
+            # la posición nueva se recuerda para la próxima sesión
+            self._guardar_pos()
         self._arrastre = None
 
     def moveEvent(self, e):
@@ -343,6 +363,7 @@ class FloatingToolbar(QWidget):
         super().moveEvent(e)
 
     def closeEvent(self, e):
+        self._guardar_pos()
         if self._chip is not None:
             self._chip.close()
         super().closeEvent(e)

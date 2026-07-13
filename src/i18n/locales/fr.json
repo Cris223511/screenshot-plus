@@ -170,5 +170,16 @@
   "prop.bg_rounded": "Arrondi",
   "prop.shadow": "Ombre du texte",
   "prop.outline": "Contour du texte",
-  "prop.bg_color": "Couleur du fond"
+  "prop.bg_color": "Couleur du fond",
+  "pixel.pixelate": "Pixelliser",
+  "pixel.blur": "Flou",
+  "pixel.amount": "Intensité",
+  "pixel.brush": "Épaisseur",
+  "set.reset": "Tout réinitialiser",
+  "set.reset_confirm": "Les réglages généraux (langue, thème, raccourcis, comportement) reviendront à leur état initial. Aucune capture n'est supprimée et votre dossier d'enregistrement ne change pas. Continuer ?",
+  "set.reset_yes": "Réinitialiser",
+  "set.reset_shortcuts": "Réinitialiser les raccourcis",
+  "set.recording": "Enregistrement… appuyez sur la combinaison",
+  "set.no_shortcut": "Non attribué",
+  "set.shortcut_hint": "Cliquez sur un raccourci et appuyez sur la combinaison (un modificateur comme Alt ou Ctrl plus une touche). Échap annule."
 }

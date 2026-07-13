@@ -170,5 +170,16 @@
   "prop.bg_rounded": "Arredondado",
   "prop.shadow": "Sombra do texto",
   "prop.outline": "Contorno do texto",
-  "prop.bg_color": "Cor do fundo"
+  "prop.bg_color": "Cor do fundo",
+  "pixel.pixelate": "Pixelizar",
+  "pixel.blur": "Desfocar",
+  "pixel.amount": "Intensidade",
+  "pixel.brush": "Espessura",
+  "set.reset": "Restaurar tudo",
+  "set.reset_confirm": "As configurações gerais (idioma, tema, atalhos, comportamento) voltarão ao início. Nenhuma captura é apagada e sua pasta de salvamento não muda. Continuar?",
+  "set.reset_yes": "Restaurar",
+  "set.reset_shortcuts": "Restaurar atalhos",
+  "set.recording": "Gravando… pressione a combinação",
+  "set.no_shortcut": "Sem atribuição",
+  "set.shortcut_hint": "Clique num atalho e pressione a combinação (um modificador como Alt ou Ctrl mais uma tecla). Esc cancela."
 }

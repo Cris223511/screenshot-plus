@@ -170,5 +170,16 @@
   "prop.bg_rounded": "Abgerundet",
   "prop.shadow": "Textschatten",
   "prop.outline": "Textkontur",
-  "prop.bg_color": "Hintergrundfarbe"
+  "prop.bg_color": "Hintergrundfarbe",
+  "pixel.pixelate": "Verpixeln",
+  "pixel.blur": "Weichzeichnen",
+  "pixel.amount": "Intensität",
+  "pixel.brush": "Stärke",
+  "set.reset": "Alles zurücksetzen",
+  "set.reset_confirm": "Die allgemeinen Einstellungen (Sprache, Design, Tastenkürzel, Verhalten) werden auf den Anfangszustand zurückgesetzt. Keine Aufnahme wird gelöscht und dein Speicherordner bleibt gleich. Fortfahren?",
+  "set.reset_yes": "Zurücksetzen",
+  "set.reset_shortcuts": "Kürzel zurücksetzen",
+  "set.recording": "Aufnahme… drücke die Kombination",
+  "set.no_shortcut": "Nicht zugewiesen",
+  "set.shortcut_hint": "Klicke auf ein Kürzel und drücke die Kombination (ein Modifikator wie Alt oder Strg plus eine Taste). Esc bricht ab."
 }

@@ -6,19 +6,171 @@ lista los atajos globales, cada uno editable con solo presionar la
 combinación nueva. nada se toca de verdad hasta apretar guardar.
 """
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import (QEasingCurve, QPropertyAnimation, QSize, Qt,
+                            Signal)
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QDialog,
-                               QFileDialog, QFormLayout, QGridLayout,
-                               QHBoxLayout, QKeySequenceEdit, QLabel,
-                               QLineEdit, QPushButton, QSlider, QTabWidget,
-                               QVBoxLayout, QWidget)
+                               QFileDialog, QFormLayout, QFrame,
+                               QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
+                               QLabel, QLineEdit, QPushButton, QSlider,
+                               QTabWidget, QVBoxLayout, QWidget)
 
 from src.config import paths, shortcuts
 from src.config.settings import settings
 from src.i18n.translator import LANGUAGES, t, translator
 from src.ui.themes.theme_manager import theme
+from src.ui.widgets.animated_button import AnimatedButton
+from src.ui.widgets.icons import icon
 from src.utils import autostart
+
+
+# nombres internos de los modificadores, en el orden en que se muestran
+_MODS = [(Qt.ControlModifier, "ctrl"), (Qt.AltModifier, "alt"),
+         (Qt.ShiftModifier, "shift"), (Qt.MetaModifier, "win")]
+
+# teclas sueltas que valen como segunda tecla, más allá de letras y números
+_ESPECIALES = {
+    Qt.Key_Space: "space", Qt.Key_Tab: "tab", Qt.Key_Home: "home",
+    Qt.Key_End: "end", Qt.Key_Insert: "insert", Qt.Key_Delete: "delete",
+    Qt.Key_PageUp: "page_up", Qt.Key_PageDown: "page_down",
+    Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left",
+    Qt.Key_Right: "right", Qt.Key_Print: "print_screen",
+}
+
+
+class _CapturaAtajo(QFrame):
+    """campo que graba una combinación de teclas al hacerle clic.
+
+    en reposo muestra el atajo alineado a la izquierda ("Alt + A"). al
+    hacer clic entra en grabación: aparece a la izquierda un cuadradito que
+    late suave, a su derecha se van mostrando las teclas que se pulsan, y a
+    la derecha un botón para cancelar. exige un modificador (Alt, Ctrl,
+    Shift) más una tecla; esc o el botón cancelan sin guardar.
+    """
+
+    def __init__(self, combinacion: str):
+        super().__init__()
+        self.setObjectName("capturaAtajo")
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self._combinacion = combinacion
+        self._grabando = False
+
+        fila = QHBoxLayout(self)
+        fila.setContentsMargins(10, 5, 5, 5)
+        fila.setSpacing(8)
+
+        # el cuadradito que late mientras graba, con esquinas curvas
+        self._punto = QWidget()
+        self._punto.setFixedSize(12, 12)
+        self._punto.setStyleSheet("background:#e5484d; border-radius:3px;")
+        self._opacidad = QGraphicsOpacityEffect(self._punto)
+        self._punto.setGraphicsEffect(self._opacidad)
+        self._latido = QPropertyAnimation(self._opacidad, b"opacity", self)
+        self._latido.setStartValue(0.28)
+        self._latido.setEndValue(1.0)
+        self._latido.setDuration(850)
+        self._latido.setEasingCurve(QEasingCurve.InOutSine)
+        self._latido.setLoopCount(-1)
+        fila.addWidget(self._punto)
+
+        self._texto = QLabel()
+        self._texto.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        fila.addWidget(self._texto, 1)
+
+        # botón para cancelar la grabación, dentro del propio campo
+        self._cancelar = AnimatedButton()
+        self._cancelar.setIcon(icon("close", theme.icon_color()))
+        self._cancelar.setIconSize(QSize(14, 14))
+        self._cancelar.setFixedSize(24, 24)
+        self._cancelar.setToolTip(t("set.cancel"))
+        self._cancelar.clicked.connect(lambda: self._terminar(None))
+        fila.addWidget(self._cancelar)
+
+        self._pintar()
+
+    def combinacion(self) -> str:
+        return self._combinacion
+
+    def set_combinacion(self, valor: str):
+        self._combinacion = valor
+        self._pintar()
+
+    def mousePressEvent(self, e):
+        # un clic en el campo (fuera del botón de cancelar) arranca la grabación
+        if not self._grabando:
+            self._empezar()
+        super().mousePressEvent(e)
+
+    def _empezar(self):
+        self._grabando = True
+        self.setFocus()
+        self.grabKeyboard()
+        self._latido.start()
+        self._pintar(progreso="")
+
+    def _terminar(self, nueva: str | None):
+        self._latido.stop()
+        self.releaseKeyboard()
+        self._grabando = False
+        if nueva:
+            self._combinacion = nueva
+        self._pintar()
+
+    def keyPressEvent(self, e):
+        if not self._grabando:
+            super().keyPressEvent(e)
+            return
+        if e.key() == Qt.Key_Escape:
+            self._terminar(None)
+            return
+        activos = {nombre for bit, nombre in _MODS if e.modifiers() & bit}
+        # la propia tecla puede ser un modificador que qt aún no reporta
+        propio = {Qt.Key_Control: "ctrl", Qt.Key_Alt: "alt",
+                  Qt.Key_Shift: "shift", Qt.Key_Meta: "win"}.get(e.key())
+        if propio:
+            activos.add(propio)
+            # todavía solo modificadores: se muestra lo que lleva y se espera
+            en_orden = [n for _, n in _MODS if n in activos]
+            self._pintar(progreso=shortcuts.display("+".join(en_orden)))
+            return
+        mods = [nombre for bit, nombre in _MODS if e.modifiers() & bit]
+        tecla = self._nombre_tecla(e.key())
+        # dos teclas sí o sí: al menos un modificador y una tecla normal
+        if not mods or not tecla:
+            return
+        self._terminar("+".join(mods + [tecla]))
+
+    def focusOutEvent(self, e):
+        if self._grabando:
+            self._terminar(None)
+        super().focusOutEvent(e)
+
+    @staticmethod
+    def _nombre_tecla(key: int) -> str | None:
+        if Qt.Key_A <= key <= Qt.Key_Z:
+            return chr(key).lower()
+        if Qt.Key_0 <= key <= Qt.Key_9:
+            return chr(key)
+        if Qt.Key_F1 <= key <= Qt.Key_F24:
+            return f"f{key - Qt.Key_F1 + 1}"
+        return _ESPECIALES.get(key)
+
+    def _pintar(self, progreso: str | None = None):
+        grabando = self._grabando
+        self._punto.setVisible(grabando)
+        self._cancelar.setVisible(grabando)
+        acento = "#e5484d"
+        borde = acento if grabando else "rgba(128,128,128,70)"
+        self.setStyleSheet(
+            f"#capturaAtajo {{ border: 1px solid {borde}; border-radius: 8px; }}")
+        if grabando:
+            # mientras graba, a la derecha del cuadradito van las teclas; si
+            # aún no hay nada, un texto guía
+            self._texto.setText(progreso or t("set.recording"))
+        else:
+            self._texto.setText(shortcuts.display(self._combinacion)
+                                if self._combinacion else t("set.no_shortcut"))
 
 
 class SettingsDialog(QDialog):
@@ -45,6 +197,8 @@ class SettingsDialog(QDialog):
         columna.addWidget(pestanas)
 
         botones = QHBoxLayout()
+        restablecer = QPushButton(t("set.reset"))
+        botones.addWidget(restablecer)
         botones.addStretch()
         cancelar = QPushButton(t("set.cancel"))
         guardar = QPushButton(t("set.save"))
@@ -53,6 +207,7 @@ class SettingsDialog(QDialog):
         botones.addWidget(guardar)
         columna.addLayout(botones)
 
+        restablecer.clicked.connect(self._restablecer)
         cancelar.clicked.connect(self.reject)
         guardar.clicked.connect(self._guardar)
 
@@ -192,13 +347,13 @@ class SettingsDialog(QDialog):
         iconos = {"zoom": "zoom", "select": "select", "hand": "hand",
                   "laser": "laser", "brush": "brush", "highlight": "highlighter",
                   "line": "line", "arrow": "arrow", "shape": "shape-rect",
-                  "eraser": "eraser", "text": "text"}
+                  "eraser": "eraser", "text": "text", "pixelate": "pixelate"}
         nombres = {"zoom": t("zoom.live"), "select": t("tool.select"),
                    "hand": t("zoom.hand"), "laser": t("zoom.laser"),
                    "brush": t("zoom.brush"), "highlight": t("zoom.highlight"),
                    "line": t("tool.line"), "arrow": t("tool.arrow"),
                    "shape": t("tool.shapes"), "eraser": t("tool.eraser"),
-                   "text": t("tool.text")}
+                   "text": t("tool.text"), "pixelate": t("tool.pixelate")}
         rejilla = QGridLayout()
         rejilla.setHorizontalSpacing(10)
         rejilla.setVerticalSpacing(6)
@@ -206,8 +361,8 @@ class SettingsDialog(QDialog):
         for i, modo in enumerate(DEFAULT_KEYS):
             fila_g, col = divmod(i, 2)
             simbolo = QLabel()
-            simbolo.setPixmap(icono_svg(iconos[modo], tema.icon_color()).pixmap(16, 16))
-            etiqueta = QLabel(nombres[modo].split(",")[0])
+            simbolo.setPixmap(icono_svg(iconos.get(modo, "select"), tema.icon_color()).pixmap(16, 16))
+            etiqueta = QLabel(nombres.get(modo, modo).split(",")[0])
             campo = QLineEdit(board_key(modo))
             campo.setMaxLength(1)
             campo.setFixedWidth(34)
@@ -246,16 +401,28 @@ class SettingsDialog(QDialog):
             "zoom_mode": t("set.sc_zoom"),
             "toggle_panel": t("set.sc_panel"),
         }
-        self._editores: dict[str, QKeySequenceEdit] = {}
+        pista = QLabel(t("set.shortcut_hint"))
+        pista.setObjectName("secundario")
+        pista.setWordWrap(True)
+        forma.addRow(pista)
+
+        self._editores: dict[str, _CapturaAtajo] = {}
         for accion, etiqueta in etiquetas.items():
-            editor = QKeySequenceEdit()
-            # el atajo guardado tipo "alt+a" se convierte a la forma que qt
-            # entiende, "Alt+A", pieza por pieza
-            combinacion = "+".join(p.capitalize() for p in shortcuts.get(accion).split("+"))
-            editor.setKeySequence(combinacion)
+            editor = _CapturaAtajo(shortcuts.get(accion))
             self._editores[accion] = editor
             forma.addRow(etiqueta, editor)
+
+        # restablecer solo los atajos de esta pestaña, sin tocar el resto
+        reset_atajos = QPushButton(t("set.reset_shortcuts"))
+        reset_atajos.clicked.connect(self._restablecer_atajos)
+        forma.addRow("", reset_atajos)
         return tab
+
+    def _restablecer_atajos(self):
+        """deja los atajos como venían de fábrica, en la propia pestaña; se
+        aplica de verdad al guardar."""
+        for accion, editor in self._editores.items():
+            editor.set_combinacion(shortcuts.DEFAULTS.get(accion, ""))
 
     # ------------------------------------------------------------------ #
 
@@ -263,6 +430,27 @@ class SettingsDialog(QDialog):
         carpeta = QFileDialog.getExistingDirectory(self, t("dlg.folder_title"), self._carpeta.text())
         if carpeta:
             self._carpeta.setText(carpeta)
+
+    def _restablecer(self):
+        """restablece solo la configuración general, tras confirmar. no
+        borra capturas ni cambia la carpeta de guardado."""
+        from PySide6.QtWidgets import QMessageBox
+        aviso = QMessageBox(self)
+        aviso.setWindowTitle(t("set.reset"))
+        aviso.setText(t("set.reset_confirm"))
+        aviso.setIcon(QMessageBox.Warning)
+        si = aviso.addButton(t("set.reset_yes"), QMessageBox.DestructiveRole)
+        aviso.addButton(t("set.cancel"), QMessageBox.RejectRole)
+        aviso.exec()
+        if aviso.clickedButton() is not si:
+            return
+        settings.reset()
+        # el arranque automático se apaga y los atajos vuelven a los de fábrica
+        autostart.sync(False)
+        translator.set_language(settings.get("language"))
+        theme.set_theme(settings.get("theme"))
+        self.shortcuts_changed.emit()
+        self.accept()
 
     def _guardar(self):
         settings.set("hide_main_on_capture", self._ocultar.isChecked())
@@ -293,7 +481,7 @@ class SettingsDialog(QDialog):
 
         hubo_cambio_atajos = False
         for accion, editor in self._editores.items():
-            texto = editor.keySequence().toString().lower()
+            texto = editor.combinacion()
             if texto and texto != shortcuts.get(accion):
                 shortcuts.set_shortcut(accion, texto)
                 hubo_cambio_atajos = True

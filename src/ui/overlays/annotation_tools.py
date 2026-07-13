@@ -1,14 +1,10 @@
-"""los elementos que el usuario dibuja sobre una captura.
+"""modelo de las anotaciones que se dibujan sobre una captura.
 
-cada anotación (una flecha, un texto, un pixelado) es un objeto que sabe
-pintarse, decir si un punto del mouse le pertenece, moverse y entregar sus
-tiradores de redimensión. el overlay solo mantiene la lista y delega en
-cada elemento, de modo que sumar una forma nueva es una clase más en este
-módulo y una entrada en el menú.
-
-todas las coordenadas van en píxeles lógicos de pantalla; al exportar, el
-overlay escala el pintor y estos mismos objetos quedan bien ubicados sobre
-la imagen a resolución nativa.
+cada anotación (flecha, texto, forma, pixelado) es un objeto que sabe
+pintarse, detectar si el mouse cae dentro, moverse y dar sus tiradores de
+redimensión. los overlays solo mantienen la lista y delegan en cada
+elemento, así que agregar una forma nueva es una clase más aquí. las
+coordenadas van en píxeles lógicos y se escalan al exportar.
 """
 
 import math
@@ -27,6 +23,14 @@ DASHES = {"solid": Qt.SolidLine, "dashed": Qt.DashLine, "dotted": Qt.DotLine,
 
 # remates posibles en los extremos de una línea o flecha
 CAPS = ("none", "arrow", "arrow_filled", "dot", "square", "diamond")
+
+# valores por defecto de las opciones de las herramientas de ocultar y borrar.
+# a diferencia de la configuración del programa, estas no se guardan a disco:
+# arrancan siempre igual y se reinician en cada sesión
+PIXEL_MODO = "pixelate"      # pixelate o blur
+PIXEL_CANTIDAD = 12          # intensidad del efecto
+PIXEL_GROSOR = 30            # grosor del pincel de ocultar
+BORRADOR_GROSOR = 30         # grosor del borrador
 
 
 def _trazo_ancho(camino: QPainterPath, ancho: float) -> QPainterPath:
@@ -303,7 +307,10 @@ class BrushItem(Item):
         self.points = [p + QPointF(dx, dy) for p in self.points]
 
     def paint(self, p):
+        # sin brush explícito, un trazo que se cruza consigo mismo rellenaría
+        # sus lazos con lo que quedara puesto en el pintor; el pincel solo traza
         p.setPen(self._pen())
+        p.setBrush(Qt.NoBrush)
         p.drawPath(self.path())
 
 
@@ -407,37 +414,98 @@ class TextItem(Item):
         p.restore()
 
 
-class PixelateItem(ShapeItem):
-    """mosaico que oculta una zona, pensado para tapar datos sensibles.
+class PixelateItem(Item):
+    """oculta a mano alzada: se pinta un trazo y bajo él la imagen queda
+    pixelada o difuminada, según el modo elegido.
 
-    el efecto se logra encogiendo la zona de la imagen original y volviendo
-    a agrandarla sin suavizado; el tamaño del bloque sale del grosor elegido
-    en la barra. la imagen fuente llega en resolución física, por eso el
-    resultado no se degrada al exportar.
+    el trazo se guarda como puntos con un grosor de pincel, igual que el
+    lápiz, pero en vez de tinta deja el efecto. el efecto se logra
+    encogiendo el recorte de la imagen y volviéndolo a agrandar: sin
+    suavizado da el mosaico del pixelado, con suavizado el difuminado. la
+    cantidad controla cuánto se encoge. mientras se pinta se muestra un
+    contorno azul para que se vea dónde va cayendo el efecto.
     """
 
-    def __init__(self, rect: QRectF, fuente: QImage, dpr: float, block: int = 12):
-        super().__init__(rect, QColor("#000000"), block)
+    def __init__(self, inicio: QPointF, fuente: QImage, dpr: float,
+                 mode: str = "pixelate", amount: int = 12, brush: int = 30):
+        super().__init__(QColor("#2f7df6"), brush)
+        self.points = [QPointF(inicio)]
         self._fuente = fuente
         self._dpr = dpr
+        self.mode = mode        # pixelate | blur
+        self.amount = amount    # intensidad del efecto
+        self.editando = True    # mientras se pinta, se marca el trazo en azul
+
+    def add_point(self, punto: QPointF):
+        self.points.append(QPointF(punto))
+
+    def _trazo(self) -> QPainterPath:
+        camino = QPainterPath(self.points[0])
+        for punto in self.points[1:]:
+            camino.lineTo(punto)
+        if len(self.points) == 1:
+            # un solo punto no dibuja stroke; un segmento mínimo lo salva
+            camino.lineTo(self.points[0] + QPointF(0.1, 0.1))
+        stroker = QPainterPathStroker()
+        stroker.setWidth(max(2.0, self.width))
+        stroker.setCapStyle(Qt.RoundCap)
+        stroker.setJoinStyle(Qt.RoundJoin)
+        return stroker.createStroke(camino)
+
+    def path(self):
+        return self._trazo()
 
     def contains(self, punto):
-        return self.rect.contains(punto)
+        return self._trazo().contains(punto)
+
+    def bounding(self):
+        return self._trazo().boundingRect().adjusted(-2, -2, 2, 2)
+
+    def move_by(self, dx, dy):
+        self.points = [p + QPointF(dx, dy) for p in self.points]
+
+    def handles(self):
+        return []   # trazo libre, solo se mueve
 
     def paint(self, p):
-        r = self.rect.normalized()
+        forma = self._trazo()
+        if self.editando:
+            # mientras el usuario arrastra solo se marca la zona en azul; el
+            # efecto se aplica al soltar, cuando el trazo ya está definido
+            tinta = QColor(self.color)
+            tinta.setAlpha(90)
+            p.fillPath(forma, tinta)
+            return
+        r = forma.boundingRect()
         if r.width() < 2 or r.height() < 2:
             return
-        fisico = QRectF(r.x() * self._dpr, r.y() * self._dpr,
-                        r.width() * self._dpr, r.height() * self._dpr).toRect()
-        recorte = self._fuente.copy(fisico)
+        # el bloque mide la intensidad, en píxeles físicos de la fuente
+        paso = max(2, int(self.amount))
+        # la zona del trazo se alinea a una rejilla global anclada en el (0,0)
+        # de la imagen. así dos trazos de la misma intensidad producen los
+        # mismos bloques donde se cruzan: pasar el pincel de nuevo no acumula
+        # ni oscurece, se ve igual; y si cambia la intensidad, manda el trazo
+        # de encima porque se pinta después
+        ax = int(math.floor(r.left() * self._dpr / paso)) * paso
+        ay = int(math.floor(r.top() * self._dpr / paso)) * paso
+        aw = max(paso, int(math.ceil(r.right() * self._dpr / paso)) * paso - ax)
+        ah = max(paso, int(math.ceil(r.bottom() * self._dpr / paso)) * paso - ay)
+        recorte = self._fuente.copy(ax, ay, aw, ah)
         if recorte.isNull():
             return
-        bloque = max(4, int(self.width))
-        chica = recorte.scaled(max(1, recorte.width() // bloque), max(1, recorte.height() // bloque),
-                               Qt.IgnoreAspectRatio, Qt.FastTransformation)
-        pixelada = chica.scaled(recorte.size(), Qt.IgnoreAspectRatio, Qt.FastTransformation)
-        p.drawImage(r, pixelada)
+        # sin suavizado da el mosaico del pixelado; con suavizado, el difuminado
+        filtro = Qt.FastTransformation if self.mode == "pixelate" else Qt.SmoothTransformation
+        chica = recorte.scaled(max(1, aw // paso), max(1, ah // paso),
+                               Qt.IgnoreAspectRatio, filtro)
+        efecto = chica.scaled(recorte.size(), Qt.IgnoreAspectRatio, filtro)
+        destino = QRectF(ax / self._dpr, ay / self._dpr,
+                         aw / self._dpr, ah / self._dpr)
+        p.save()
+        # se intersecta con el recorte que ya trae el pintor (la selección),
+        # si no el efecto se saldría del contorno al reemplazarlo
+        p.setClipPath(forma, Qt.IntersectClip)
+        p.drawImage(destino, efecto)
+        p.restore()
 
 
 def snap_45(fijo: QPointF, movil: QPointF) -> QPointF:
@@ -501,13 +569,50 @@ def clonar(item: "Item") -> "Item":
     if isinstance(item, LineItem):
         nuevo.p1 = QPointF(item.p1)
         nuevo.p2 = QPointF(item.p2)
-    if isinstance(item, BrushItem):
+    if isinstance(item, (BrushItem, PixelateItem)):
         nuevo.points = [QPointF(p) for p in item.points]
     if isinstance(item, TextItem):
         nuevo.pos = QPointF(item.pos)
         nuevo.font = QFont(item.font)
         nuevo.bg_color = QColor(item.bg_color)
     return nuevo
+
+
+def cursor_tirador(item: "Item", indice: int):
+    """el cursor de redimensión que corresponde a cada tirador.
+
+    las formas tienen ocho tiradores (esquinas y puntos medios) y cada uno
+    apunta en su dirección; el texto tiene cuatro esquinas; las líneas dos
+    extremos que solo se mueven. así el usuario ve la flechita correcta.
+    """
+    if isinstance(item, LineItem):
+        return Qt.SizeAllCursor
+    diag_principal = Qt.SizeFDiagCursor   # ↖↘
+    diag_secundaria = Qt.SizeBDiagCursor  # ↗↙
+    horizontal = Qt.SizeHorCursor
+    vertical = Qt.SizeVerCursor
+    if isinstance(item, TextItem):
+        return [diag_principal, diag_secundaria, diag_principal, diag_secundaria][indice]
+    # formas: esquinas y medios en el orden de ShapeItem.handles
+    return [diag_principal, vertical, diag_secundaria, horizontal,
+            diag_principal, vertical, diag_secundaria, horizontal][indice % 8]
+
+
+def pintar_circulo_pincel(p: QPainter, centro: QPointF, grosor: float):
+    """dibuja el contorno del cursor bajo el mouse, del tamaño del trazo.
+
+    un anillo blanco fino con una sombra gris muy tenue por debajo, para que
+    se vea sobre cualquier fondo sin ensuciar con negro. el radio es la mitad
+    del grosor, así el círculo abarca justo lo que la herramienta cubrirá.
+    """
+    radio = max(1.0, grosor / 2)
+    p.save()
+    p.setBrush(Qt.NoBrush)
+    p.setPen(QPen(QColor(120, 120, 120, 70), 2.0))
+    p.drawEllipse(centro, radio, radio)
+    p.setPen(QPen(QColor(255, 255, 255, 230), 1.0))
+    p.drawEllipse(centro, radio, radio)
+    p.restore()
 
 
 def restringir_eje(delta: QPointF) -> QPointF:
@@ -561,7 +666,7 @@ def escalar_texto(item: "TextItem", indice: int, pos: QPointF,
 
 def snapshot(item: Item):
     """la geometría de un elemento, para poder deshacer un movimiento."""
-    if isinstance(item, BrushItem):
+    if isinstance(item, (BrushItem, PixelateItem)):
         return ("points", [QPointF(p) for p in item.points])
     if isinstance(item, LineItem):
         return ("line", QPointF(item.p1), QPointF(item.p2))
@@ -595,8 +700,8 @@ class ImageItem(ShapeItem):
         self.image = imagen
 
     def path(self):
-        # sin este contorno, pintar la selección de una imagen reventaba
-        # en silencio y los tiradores nunca aparecían
+        # el contorno rectangular es lo que permite pintar la selección de
+        # la imagen y mostrar sus tiradores
         camino = QPainterPath()
         camino.addRect(self.rect)
         return camino

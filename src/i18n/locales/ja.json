@@ -170,5 +170,16 @@
   "prop.bg_rounded": "角丸",
   "prop.shadow": "テキストの影",
   "prop.outline": "テキストの輪郭",
-  "prop.bg_color": "背景色"
+  "prop.bg_color": "背景色",
+  "pixel.pixelate": "モザイク",
+  "pixel.blur": "ぼかし",
+  "pixel.amount": "強さ",
+  "pixel.brush": "太さ",
+  "set.reset": "すべてリセット",
+  "set.reset_confirm": "全般設定（言語、テーマ、ショートカット、動作）が初期状態に戻ります。スクリーンショットは削除されず、保存フォルダーも変わりません。続けますか？",
+  "set.reset_yes": "リセット",
+  "set.reset_shortcuts": "ショートカットをリセット",
+  "set.recording": "記録中… 組み合わせを押してください",
+  "set.no_shortcut": "未割り当て",
+  "set.shortcut_hint": "ショートカットをクリックして組み合わせを押します（Alt や Ctrl などの修飾キー＋キー）。Esc で取り消し。"
 }

@@ -1,19 +1,11 @@
 """unión de fotogramas para la captura con desplazamiento.
 
-mientras el usuario hace scroll se toman capturas de la misma zona y cada
-una se pega debajo de la anterior. lo delicado es medir cuánto se
-desplazó el contenido entre un fotograma y el siguiente, y hacerlo con
-tolerancia: el suavizado de fuentes, un cursor parpadeando o un video de
-fondo cambian píxeles sueltos aunque el texto sea el mismo, así que
-comparar bytes exactos fallaba a la primera.
-
-la medición trabaja sobre una huella barata de cada fila: la franja
-central del fotograma se reduce a una tira gris de 32 columnas (pillow lo
-hace en c, muy rápido) y cada fila queda descrita por esos 32 valores. la
-franja final del fotograma anterior se busca dentro del nuevo comparando
-huellas con distancia absoluta; el mejor calce con poca diferencia dice
-cuántas filas nuevas trae el scroll. si ningún calce es confiable, el
-fotograma se descarta en lugar de ensuciar el resultado con duplicados.
+cada giro de scroll captura la misma zona y hay que medir cuánto avanzó el
+contenido para pegar solo lo nuevo. la medición trabaja sobre una huella
+barata de cada fila (una tira gris de 32 columnas) y busca dónde calza la
+franja final del fotograma anterior dentro del nuevo, con tolerancia al
+suavizado de fuentes o al parpadeo del cursor. si el calce no es confiable,
+el fotograma se descarta antes que ensuciar el resultado con duplicados.
 """
 
 from PIL import Image

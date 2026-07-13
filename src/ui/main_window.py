@@ -1,15 +1,10 @@
-"""panel principal: la barrita compacta desde donde se dispara todo.
+"""panel principal: la barra compacta desde donde se dispara todo.
 
-una ventana sin marco con fondo sólido y esquinas redondeadas, pintados a
-mano para que se vean igual en cualquier windows. de izquierda a derecha:
-el logo con sus bordes suavizados, el botón grande de capturar, los
-accesos a pantalla completa, ventana actual, captura con desplazamiento y
-panel de presentación, luego ajustes, el menú, el pin de siempre adelante,
-minimizar y cerrar (que en realidad manda la app a la bandeja).
-
-se arrastra desde cualquier zona libre, entra con un fundido suave, y si
-el usuario cambia de idioma o de tema se repinta en caliente, sin
-reiniciar nada.
+una ventana sin marco, con fondo sólido y esquinas redondeadas, que reúne
+el logo, el botón de capturar, los accesos a los modos de captura y de
+presentación, ajustes, menú, pin y los botones de ventana. se arrastra
+desde cualquier zona libre y se repinta en caliente al cambiar tema o
+idioma.
 """
 
 import os
@@ -50,7 +45,12 @@ class MainWindow(QWidget):
     minimized_changed = Signal(bool)
 
     def __init__(self):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        # el estado del pin, guardado, decide si el panel nace siempre
+        # adelante o no, en vez de forzarlo
+        banderas = Qt.FramelessWindowHint
+        if settings.get("panel_pinned", False):
+            banderas |= Qt.WindowStaysOnTopHint
+        super().__init__(None, banderas)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo.jpg"))))
@@ -104,12 +104,12 @@ class MainWindow(QWidget):
         fila.addWidget(self._menu_boton)
 
         # el pin controla si el panel se queda por encima de las demás
-        # ventanas; arranca activado, que es lo cómodo para capturar
+        # ventanas; arranca apagado y su estado se recuerda entre sesiones
         self._pin = AnimatedButton()
         self._pin.setIconSize(QSize(20, 20))
         self._pin.setCursor(Qt.PointingHandCursor)
         self._pin.setCheckable(True)
-        self._pin.setChecked(True)
+        self._pin.setChecked(settings.get("panel_pinned", False))
         self._pin.toggled.connect(self._alternar_pin)
         fila.addWidget(self._pin)
 
@@ -196,8 +196,10 @@ class MainWindow(QWidget):
         """siempre adelante o comportamiento normal, a elección.
 
         qt recrea la ventana al cambiar la bandera, de ahí el show()
-        inmediato para que el panel no desaparezca en el cambio.
+        inmediato para que el panel no desaparezca en el cambio. la
+        elección se recuerda para la próxima sesión.
         """
+        settings.set("panel_pinned", fijado)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, fijado)
         self.show()
         self._aplicar_iconos()
@@ -270,4 +272,8 @@ class MainWindow(QWidget):
             self.move(e.globalPosition().toPoint() - self._arrastre)
 
     def mouseReleaseEvent(self, _):
+        if self._arrastre is not None:
+            # al soltar tras arrastrar, la posición queda registrada para
+            # recuperarla exactamente en la próxima sesión
+            settings.set("panel_pos", [self.x(), self.y()])
         self._arrastre = None

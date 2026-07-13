@@ -170,5 +170,16 @@
   "prop.bg_rounded": "Rounded",
   "prop.shadow": "Text shadow",
   "prop.outline": "Text outline",
-  "prop.bg_color": "Background color"
+  "prop.bg_color": "Background color",
+  "pixel.pixelate": "Pixelate",
+  "pixel.blur": "Blur",
+  "pixel.amount": "Intensity",
+  "pixel.brush": "Brush",
+  "set.reset": "Reset all",
+  "set.reset_confirm": "General settings (language, theme, shortcuts, behavior) will return to how they started. No screenshot is deleted and your save folder is not changed. Continue?",
+  "set.reset_yes": "Reset",
+  "set.reset_shortcuts": "Reset shortcuts",
+  "set.recording": "Recording… press the combination",
+  "set.no_shortcut": "Unassigned",
+  "set.shortcut_hint": "Click a shortcut and press the combination (a modifier like Alt or Ctrl plus a key). Esc cancels."
 }

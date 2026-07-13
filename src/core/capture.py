@@ -55,8 +55,7 @@ def make_tool_window(widget) -> None:
 def foreground_fullscreen() -> bool:
     """True cuando la ventana con foco ocupa su monitor entero.
 
-    los juegos y las apps a pantalla completa se detectan así; con eso los
-    atajos globales se quedan callados para no interrumpir la partida.
+    así se reconocen los juegos y las apps a pantalla completa.
     """
     try:
         import win32api
@@ -75,6 +74,63 @@ def foreground_fullscreen() -> bool:
         return tuple(rect) == tuple(info["Monitor"])
     except Exception:
         return False
+
+
+_NAVEGADORES = ("chrome", "firefox", "msedge", "edge", "opera", "brave",
+                "vivaldi", "yandex", "browser", "chromium", "arc", "librewolf")
+
+
+def _proceso_foreground() -> str:
+    """nombre del ejecutable de la ventana con foco, en minúsculas."""
+    try:
+        import os
+        import win32api
+        import win32con
+        import win32gui
+        import win32process
+        hwnd = win32gui.GetForegroundWindow()
+        if not hwnd:
+            return ""
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        handle = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION
+                                      | win32con.PROCESS_VM_READ, False, pid)
+        try:
+            ruta = win32process.GetModuleFileNameEx(handle, 0)
+        finally:
+            win32api.CloseHandle(handle)
+        return os.path.basename(ruta).lower()
+    except Exception:
+        return ""
+
+
+# clases de ventana de los navegadores; sirven de respaldo si no se puede
+# leer el nombre del proceso (por ejemplo un proceso con más privilegios)
+_CLASES_NAVEGADOR = ("chrome_widgetwin", "mozillawindowclass")
+
+
+def foreground_es_navegador() -> bool:
+    """True si al frente hay un navegador web.
+
+    sirve para no confundir un navegador a pantalla completa con un juego:
+    en el navegador el modo presentación sí debe seguir funcionando. se mira
+    el nombre del proceso y, como respaldo, la clase de la ventana.
+    """
+    nombre = _proceso_foreground()
+    if any(marca in nombre for marca in _NAVEGADORES):
+        return True
+    try:
+        import win32gui
+        clase = win32gui.GetClassName(win32gui.GetForegroundWindow()).lower()
+        return any(c in clase for c in _CLASES_NAVEGADOR)
+    except Exception:
+        return False
+
+
+def bloquea_presentacion() -> bool:
+    """True cuando el modo presentación debe callarse: hay una app a
+    pantalla completa que no es un navegador (un juego u otra con
+    prioridad). los navegadores a pantalla completa no cuentan."""
+    return foreground_fullscreen() and not foreground_es_navegador()
 
 
 def _grab(region: dict) -> QImage:
@@ -130,6 +186,33 @@ def active_window_rect():
     except Exception:
         pass
     return None
+
+
+def foreground_window():
+    """identificador de la ventana con foco, para poder devolvérselo luego.
+
+    se guarda antes de abrir un overlay y se restaura al cerrarlo, así el
+    usuario vuelve a la aplicación en la que estaba (su navegador, un
+    documento) sin tener que hacer un clic de más.
+    """
+    try:
+        import win32gui
+        hwnd = win32gui.GetForegroundWindow()
+        return hwnd or None
+    except Exception:
+        return None
+
+
+def restore_foreground(hwnd) -> None:
+    """le devuelve el foco a una ventana guardada con foreground_window."""
+    if not hwnd:
+        return
+    try:
+        import win32gui
+        if win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd):
+            win32gui.SetForegroundWindow(hwnd)
+    except Exception:
+        pass
 
 
 def grab_active_window() -> QImage:

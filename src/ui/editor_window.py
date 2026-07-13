@@ -1,21 +1,14 @@
-"""editor de imágenes ya capturadas, pensado para la captura larga.
+"""editor de imágenes ya capturadas, en una ventana con scroll.
 
-la captura con desplazamiento termina en una imagen que puede medir miles
-de píxeles de alto, imposible de editar en el overlay de pantalla. este
-editor la recibe en una ventana normal con scroll: arriba la misma barra
-de herramientas del editor de capturas (formas, líneas, flechas, pincel,
-texto, pixelado, con todas sus propiedades) y abajo el lienzo. las
-anotaciones funcionan igual: se dibujan, se seleccionan, se mueven, se
-redimensionan y se les cambia color o estilo en vivo.
-
-ctrl+c copia, ctrl+s guarda, ctrl+z deshace, supr borra el elemento
-seleccionado. el resultado sale por señales y la app decide portapapeles,
-diálogo de guardado y notificaciones, igual que con cualquier captura.
+recibe la imagen en una ventana normal (la captura larga puede medir miles
+de píxeles de alto y no cabe en el overlay de pantalla) y ofrece la misma
+barra de herramientas y anotaciones que el editor de capturas. ctrl+c
+copia, ctrl+s guarda, ctrl+z deshace; el resultado sale por señales.
 """
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (QColor, QFont, QGuiApplication, QIcon, QImage,
-                           QKeySequence, QPainter, QPen)
+                           QKeySequence, QPainter, QPainterPath, QPen)
 from PySide6.QtWidgets import (QLineEdit, QScrollArea, QVBoxLayout, QWidget)
 
 import os
@@ -56,9 +49,17 @@ class _Canvas(QWidget):
         self.cap_fin = "arrow_filled"
         self.opacidad = 1.0
         self.fuente = QFont("Segoe UI", 18)
+        # opciones del pincel de ocultar y del borrador; no se guardan a
+        # disco, arrancan siempre en su valor por defecto
+        self.pixel_modo = an.PIXEL_MODO
+        self.pixel_cantidad = an.PIXEL_CANTIDAD
+        self.pixel_grosor = an.PIXEL_GROSOR
+        self.borrador_grosor = an.BORRADOR_GROSOR
+        self._cursor_pincel: QPointF | None = None
 
         self._editor: QLineEdit | None = None
         self._editor_pos = QPointF()
+        self.setMouseTracking(True)
 
     # ------------------------------------------------------------------ #
     # texto en línea
@@ -134,6 +135,9 @@ class _Canvas(QWidget):
             self._press_seleccion(punto, bool(e.modifiers() & Qt.AltModifier))
         elif self.tool == "text":
             self.abrir_editor_texto(punto)
+        elif self.tool == "eraser":
+            self._arrastre = {"modo": "borrar"}
+            self._borrar_en(punto)
         else:
             self._press_dibujo(punto)
         self.update()
@@ -154,6 +158,9 @@ class _Canvas(QWidget):
                                                     self.activo.font.pointSizeF())
                     return
         for item in reversed(self.items):
+            # el trazo de ocultar no se toma ni se mueve; se quita con el borrador
+            if isinstance(item, an.PixelateItem):
+                continue
             if item.contains(punto):
                 # el texto se selecciona como cualquier elemento; su
                 # contenido se edita con doble clic
@@ -169,6 +176,22 @@ class _Canvas(QWidget):
                 return
         self.activo = None
         self.item_selected.emit("select", None)
+
+    def _borrar_en(self, punto: QPointF):
+        """el borrador quita las anotaciones que su círculo toca."""
+        radio = max(2.0, self.borrador_grosor / 2)
+        circulo = QPainterPath()
+        circulo.addEllipse(punto, radio, radio)
+        borrado = False
+        for item in reversed(list(self.items)):
+            trazo = an._trazo_ancho(item.path(), max(1.0, item.width))
+            if trazo.intersects(circulo) or item.contains(punto):
+                self.items.remove(item)
+                if item is self.activo:
+                    self.activo = None
+                borrado = True
+        if borrado:
+            self.update()
 
     @staticmethod
     def _tipo_de(item: an.Item) -> str:
@@ -198,8 +221,10 @@ class _Canvas(QWidget):
             nuevo = an.BrushItem(punto, self.color, self.ancho)
         elif self.tool == "pixelate":
             # sobre una imagen ya capturada la relación es uno a uno, por
-            # eso el factor de pantalla va en 1
-            nuevo = an.PixelateItem(QRectF(punto, punto), self.imagen, 1.0, self.ancho + 9)
+            # eso el factor de pantalla va en 1; el trazo se pinta como el
+            # pincel y al soltar queda pixelado o difuminado
+            nuevo = an.PixelateItem(punto, self.imagen, 1.0, self.pixel_modo,
+                                    self.pixel_cantidad, self.pixel_grosor)
         else:
             return
         nuevo.opacity = self.opacidad
@@ -210,8 +235,14 @@ class _Canvas(QWidget):
 
     def mouseMoveEvent(self, e):
         punto = QPointF(e.position())
+        if self.tool in ("pixelate", "eraser"):
+            self._cursor_pincel = punto
+            self.update()
         if not self._arrastre:
             self._cursor_hover(punto)
+            return
+        if self._arrastre.get("modo") == "borrar":
+            self._borrar_en(punto)
             return
         # los mismos modificadores de los otros editores: shift endereza
         # y proporciona, alt crece desde el centro
@@ -224,8 +255,12 @@ class _Canvas(QWidget):
         if modo == "crear":
             item = self._arrastre["item"]
             origen = self._arrastre.get("origen")
-            if isinstance(item, an.BrushItem):
-                item.add_point(punto)
+            if isinstance(item, (an.BrushItem, an.PixelateItem)):
+                if shift:
+                    # con shift el trazo sale recto desde donde empezó
+                    item.points = [QPointF(item.points[0]), QPointF(punto)]
+                else:
+                    item.add_point(punto)
             elif isinstance(item, an.ShapeItem):
                 if alt and origen is not None:
                     espejo = QPointF(2 * origen.x() - punto.x(), 2 * origen.y() - punto.y())
@@ -274,28 +309,29 @@ class _Canvas(QWidget):
         if self.tool != "select":
             self.setCursor(Qt.IBeamCursor if self.tool == "text" else Qt.CrossCursor)
             return
-        objetivo = Qt.ArrowCursor
         if self.activo is not None:
-            for tirador in self.activo.handles():
+            for i, tirador in enumerate(self.activo.handles()):
                 if (tirador - punto).manhattanLength() <= _LADO_TIRADOR + 4:
-                    objetivo = Qt.SizeAllCursor
-                    break
-        if objetivo == Qt.ArrowCursor:
-            for item in reversed(self.items):
-                if item.contains(punto):
-                    objetivo = Qt.OpenHandCursor
-                    break
-        self.setCursor(objetivo)
+                    # la flechita apunta según el tirador
+                    self.setCursor(an.cursor_tirador(self.activo, i))
+                    return
+        for item in reversed(self.items):
+            if item.contains(punto):
+                self.setCursor(Qt.OpenHandCursor)
+                return
+        self.setCursor(Qt.ArrowCursor)
 
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.LeftButton:
             return
         if self._arrastre and self._arrastre["modo"] == "crear":
             item = self._arrastre["item"]
+            if isinstance(item, an.PixelateItem):
+                item.editando = False
             if item.bounding().width() < 8 and item.bounding().height() < 8:
                 if item in self.items:
                     self.items.remove(item)
-            elif self.tool != "brush":
+            elif self.tool not in ("brush", "pixelate"):
                 # lo recién dibujado queda seleccionado y la herramienta
                 # pasa a selección, lista para acomodar
                 self.tool = "select"
@@ -344,7 +380,16 @@ class _Canvas(QWidget):
                 pintor.setPen(pluma)
                 pintor.setBrush(Qt.NoBrush)
                 pintor.drawRect(self.activo.bounding())
+        if self.tool in ("pixelate", "eraser") and self._cursor_pincel is not None:
+            grosor = self.pixel_grosor if self.tool == "pixelate" else self.borrador_grosor
+            an.pintar_circulo_pincel(pintor, self._cursor_pincel, grosor)
         pintor.end()
+
+    def leaveEvent(self, e):
+        if self._cursor_pincel is not None:
+            self._cursor_pincel = None
+            self.update()
+        super().leaveEvent(e)
 
 
 class EditorWindow(QWidget):
@@ -395,6 +440,10 @@ class EditorWindow(QWidget):
         b.font_size_changed.connect(self._aplicar_tamano)
         b.bold_toggled.connect(lambda v: self._aplicar_estilo_fuente("setBold", v))
         b.italic_toggled.connect(lambda v: self._aplicar_estilo_fuente("setItalic", v))
+        b.pixel_mode_changed.connect(lambda m: self._aplicar_pixel("mode", m))
+        b.pixel_amount_changed.connect(lambda v: self._aplicar_pixel("amount", v))
+        b.pixel_size_changed.connect(lambda v: self._aplicar_pixel("size", v))
+        b.eraser_size_changed.connect(self._aplicar_borrador)
         b.undo_clicked.connect(self._deshacer)
         b.redo_clicked.connect(self._rehacer)
         b.clear_clicked.connect(self._limpiar)
@@ -415,6 +464,8 @@ class EditorWindow(QWidget):
         self._canvas.tool = nombre
         if nombre != "select":
             self._canvas.activo = None
+        if nombre not in ("pixelate", "eraser"):
+            self._canvas._cursor_pincel = None
         self._canvas.setCursor({"select": Qt.ArrowCursor,
                                 "text": Qt.IBeamCursor}.get(nombre, Qt.CrossCursor))
         self._canvas.update()
@@ -434,6 +485,29 @@ class EditorWindow(QWidget):
                         QColor(valor) if isinstance(valor, QColor) else valor)
                 c.update()
         return manejar
+
+    def _aplicar_pixel(self, campo: str, valor):
+        """las opciones del pincel de ocultar quedan de base para el próximo
+        trazo de esta sesión; no se guardan a disco."""
+        c = self._canvas
+        if campo == "mode":
+            c.pixel_modo = valor
+        elif campo == "amount":
+            c.pixel_cantidad = int(valor)
+        elif campo == "size":
+            c.pixel_grosor = int(valor)
+        if isinstance(c.activo, an.PixelateItem):
+            if campo == "mode":
+                c.activo.mode = valor
+            elif campo == "amount":
+                c.activo.amount = int(valor)
+            elif campo == "size":
+                c.activo.width = int(valor)
+            c.update()
+
+    def _aplicar_borrador(self, valor: int):
+        self._canvas.borrador_grosor = int(valor)
+        self._canvas.update()
 
     def _aplicar_fuente(self, familia: str):
         c = self._canvas
@@ -502,8 +576,9 @@ class EditorWindow(QWidget):
         self.close()
 
     def _guardar(self):
+        # el diálogo de guardado se abre encima sin cerrar el editor: al
+        # confirmar o cancelar, la captura queda abierta para seguir
         imagen = self._canvas.exportar()
-        self.close()
         self.save_requested.emit(imagen)
 
     def keyPressEvent(self, e):

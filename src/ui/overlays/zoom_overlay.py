@@ -1,22 +1,10 @@
 """modo presentación: pausar la pantalla, señalar, dibujar y capturar.
 
-el panel lateral queda flotando sobre el trabajo normal. al activar
-cualquier herramienta, la pantalla se pausa: un overlay congela lo que se
-estaba viendo y sobre esa foto ocurre todo lo demás, con la rueda del
-mouse haciendo zoom hacia el cursor en cualquier momento, como acercarse
-a una pizarra.
-
-herramientas sobre la pausa: V selecciona (un elemento, o varios con el
-recuadro elástico, para moverlos, estirarlos o borrarlos con supr),
-H arrastra la vista, L es el láser de estela, P pincel, R resaltador,
-I línea, F flecha, E borrador de lo que toque y T texto directo. todo lo
-dibujado queda pegado al contenido: el zoom lo agranda o lo achica junto
-con la imagen.
-
-deshacer y rehacer funcionan por acciones, así que también reviven lo
-borrado y lo limpiado. ctrl+c copia toda la pizarra con sus dibujos,
-ctrl+s la guarda, y ctrl+a (o el botón de cámara) recorta solo un pedazo.
-esc despausa y se vuelve al escritorio tal como estaba.
+al elegir una herramienta se congela lo que hay en pantalla y sobre esa
+foto se dibuja, se anota y se hace zoom hacia el cursor con la rueda. las
+anotaciones quedan pegadas al contenido y escalan con él; deshacer y
+rehacer trabajan por acciones. ctrl+c copia la pizarra, ctrl+s la guarda,
+ctrl+a recorta un pedazo y esc despausa.
 """
 
 import time
@@ -115,12 +103,17 @@ class _FreezeOverlay(QWidget):
         self.cap_inicio = "none"
         self.cap_fin = "arrow_filled"
         self.opacidad = 1.0
+        # opciones del pincel de ocultar; no se guardan, arrancan igual
+        self.pixel_modo = an.PIXEL_MODO
+        self.pixel_cantidad = an.PIXEL_CANTIDAD
+        self.pixel_grosor = an.PIXEL_GROSOR
         self._atajos = _atajos_vigentes()
 
         # la vista: cuánto zoom hay y qué esquina de la imagen se ve
         self._zoom = 1.0
         self._offset = QPointF(0, 0)
         self._paneo: QPointF | None = None
+        self._cursor_pincel: QPointF | None = None  # en coordenadas base
 
         # los dibujos viven en coordenadas de la imagen base, por eso se
         # quedan pegados al contenido al acercar y alejar
@@ -286,9 +279,14 @@ class _FreezeOverlay(QWidget):
         if modo != "select" and self._seleccion:
             self._seleccion.clear()
             self.selection_changed.emit()
+        if modo not in ("highlight", "pixelate"):
+            self._cursor_pincel = None
+        # el resaltador y el pincel de ocultar muestran el círculo de grosor
+        # (cursor oculto); el láser su punto; el pincel normal pinta y ya
         cursores = {"laser": Qt.BlankCursor, "zoom": Qt.ArrowCursor,
                     "select": Qt.ArrowCursor, "hand": Qt.OpenHandCursor,
-                    "text": Qt.IBeamCursor}
+                    "text": Qt.IBeamCursor,
+                    "highlight": Qt.BlankCursor, "pixelate": Qt.BlankCursor}
         self.setCursor(cursores.get(modo, Qt.CrossCursor))
         if modo == "laser":
             self._reloj.start()
@@ -518,6 +516,12 @@ class _FreezeOverlay(QWidget):
             tinta = QColor(self.color)
             tinta.setAlpha(110)
             self._crear(an.BrushItem(base, tinta, max(10.0, self.ancho * 4)))
+        elif self.mode == "pixelate":
+            # el trazo va sobre la pantalla congelada; se pinta como pincel
+            # y al soltar deja pixelado o difuminado lo que cubrió
+            self._crear(an.PixelateItem(base, self._imagen, self._dpr,
+                                        self.pixel_modo, self.pixel_cantidad,
+                                        self.pixel_grosor))
         elif self.mode == "line":
             nuevo = an.LineItem(base, base, self.color, self.ancho)
             nuevo.dash = self.dash
@@ -598,6 +602,9 @@ class _FreezeOverlay(QWidget):
                                                     unico.font.pointSizeF())
                     return
         for item in reversed(self._items):
+            # el trazo de ocultar no se toma ni se mueve; solo el borrador lo quita
+            if isinstance(item, an.PixelateItem):
+                continue
             if item.contains(base):
                 # el texto se selecciona y arrastra como cualquier otro
                 # elemento; el doble clic es el que abre su edición
@@ -639,9 +646,22 @@ class _FreezeOverlay(QWidget):
                 self._borrando.append((indice, item))
                 break
 
+    def _grosor_pincel(self) -> float:
+        """el grosor del trazo según el pincel activo, para el círculo guía."""
+        if self.mode == "pixelate":
+            return self.pixel_grosor
+        if self.mode == "highlight":
+            return max(10.0, self.ancho * 4)
+        return self.ancho
+
     def mouseMoveEvent(self, e):
         punto = QPointF(e.position())
         self._cursor = punto
+        # el círculo de tamaño sigue al cursor, guardado en coordenadas base
+        # para que el zoom lo agrande junto con el trazo
+        if self.mode in ("highlight", "pixelate") and not self._cap_activa:
+            self._cursor_pincel = self._a_base(punto)
+            self.update()
 
         if self._paneo is not None:
             delta = (self._paneo - punto) / self._zoom
@@ -697,8 +717,12 @@ class _FreezeOverlay(QWidget):
         if modo == "crear":
             item = self._arrastre["item"]
             origen = self._arrastre.get("origen")
-            if isinstance(item, an.BrushItem):
-                item.add_point(base)
+            if isinstance(item, (an.BrushItem, an.PixelateItem)):
+                if shift:
+                    # con shift el trazo sale recto desde donde empezó
+                    item.points = [QPointF(item.points[0]), QPointF(base)]
+                else:
+                    item.add_point(base)
             elif isinstance(item, an.LineItem):
                 destino = an.snap_45(origen, base) if shift and origen else base
                 item.p2 = destino
@@ -754,9 +778,10 @@ class _FreezeOverlay(QWidget):
     def _cursor_seleccion(self, base: QPointF):
         tolerancia = (_LADO_TIRADOR + 4) / self._zoom
         if len(self._seleccion) == 1:
-            for tirador in self._seleccion[0].handles():
+            for i, tirador in enumerate(self._seleccion[0].handles()):
                 if (tirador - base).manhattanLength() <= tolerancia:
-                    self.setCursor(Qt.SizeAllCursor)
+                    # la flechita de redimensión que apunta según el tirador
+                    self.setCursor(an.cursor_tirador(self._seleccion[0], i))
                     return
         for item in reversed(self._items):
             if item.contains(base):
@@ -790,6 +815,8 @@ class _FreezeOverlay(QWidget):
         modo = self._arrastre["modo"]
         if modo == "crear":
             item = self._arrastre["item"]
+            if isinstance(item, an.PixelateItem):
+                item.editando = False
             if item.bounding().width() < 8 and item.bounding().height() < 8:
                 if item in self._items:
                     self._items.remove(item)
@@ -797,8 +824,9 @@ class _FreezeOverlay(QWidget):
                 self._registrar(("agregar", [item]))
                 # la figura, línea o flecha recién puesta queda
                 # seleccionada y la herramienta pasa a V, lista para
-                # acomodarla; el pincel se queda para seguir trazando
-                if not isinstance(item, an.BrushItem):
+                # acomodarla; el pincel y el pincel de ocultar se quedan
+                # activos para seguir trazando
+                if not isinstance(item, (an.BrushItem, an.PixelateItem)):
                     self._seleccion = [item]
                     self.selection_changed.emit()
                     self.mode_key_pressed.emit("select")
@@ -820,7 +848,8 @@ class _FreezeOverlay(QWidget):
         elif modo == "banda":
             if self._banda is not None:
                 self._seleccion = [i for i in self._items
-                                   if self._banda.intersects(i.bounding())]
+                                   if self._banda.intersects(i.bounding())
+                                   and not isinstance(i, an.PixelateItem)]
                 self.selection_changed.emit()
             self._banda = None
         elif modo == "borrar":
@@ -829,6 +858,13 @@ class _FreezeOverlay(QWidget):
             self._borrando = []
         self._arrastre = None
         self.update()
+
+    def leaveEvent(self, e):
+        # el círculo del pincel no debe quedar dibujado si el mouse se fue
+        if self._cursor_pincel is not None:
+            self._cursor_pincel = None
+            self.update()
+        super().leaveEvent(e)
 
     def mouseDoubleClickEvent(self, e):
         # doble clic sobre un texto, con la herramienta de selección, lo
@@ -918,6 +954,13 @@ class _FreezeOverlay(QWidget):
         if self.mode == "select" and not self._cap_activa:
             self._pintar_seleccion(pintor)
         pintor.restore()
+
+        # el círculo del pincel se pinta en coordenadas de pantalla, con el
+        # radio ya escalado por el zoom, para que la línea quede fina
+        if (self.mode in ("highlight", "pixelate") and not self._cap_activa
+                and self._cursor_pincel is not None):
+            centro = self._a_vista(self._cursor_pincel)
+            an.pintar_circulo_pincel(pintor, centro, self._grosor_pincel() * self._zoom)
 
         if self._cap_activa:
             self._pintar_captura(pintor)
@@ -1138,8 +1181,10 @@ class PresentationMode(QObject):
             self._listener_global = None
 
     def _bind_herramienta(self, modo: str):
-        from src.core.capture import foreground_fullscreen
-        if foreground_fullscreen():
+        # el modo presentación se calla ante un juego u otra app a pantalla
+        # completa con prioridad; un navegador a pantalla completa no cuenta
+        from src.core.capture import bloquea_presentacion
+        if bloquea_presentacion():
             return
         self.toolbar.toggle_mode(modo)
 
@@ -1171,6 +1216,22 @@ class PresentationMode(QObject):
                 settings.set("laser_color", QColor(valor).name())
             elif nombre == "width":
                 settings.set("laser_size", int(valor))
+            o.update()
+            return
+        # con el pincel de ocultar activo, sus tres controles editan lo suyo
+        # y no el trazo de dibujo; el grosor viaja como "width"
+        pixel_activo = (self.toolbar.current_mode() == "pixelate"
+                        or any(isinstance(i, an.PixelateItem) for i in o._seleccion))
+        if nombre == "pixel_mode":
+            o.pixel_modo = valor
+            o.update()
+            return
+        if nombre == "pixel_amount":
+            o.pixel_cantidad = int(valor)
+            o.update()
+            return
+        if nombre == "width" and pixel_activo:
+            o.pixel_grosor = int(valor)
             o.update()
             return
         if nombre == "color":
@@ -1274,13 +1335,17 @@ class PresentationMode(QObject):
         """
         modo = self.toolbar.current_mode()
         o = self.overlay
+        # con el panel recogido en el chip, las propiedades tampoco asoman
+        if self.toolbar._minimizado:
+            self.props.hide()
+            return
         if o is not None and o._seleccion:
             self._props_apagadas = False
         if getattr(self, "_props_apagadas", False):
             self.props.hide()
             return
         con_props = (modo in ("brush", "highlight", "line", "arrow", "shape",
-                              "text", "laser")
+                              "text", "laser", "pixelate")
                      or (modo == "select" and o is not None and bool(o._seleccion)))
         if not con_props or o is None:
             self.props.hide()
@@ -1289,10 +1354,14 @@ class PresentationMode(QObject):
             self.props.load_defaults({"color": settings.get("laser_color", "#ff3b30"),
                                       "width": settings.get("laser_size", 14)})
         elif len(o._seleccion) != 1:
-            self.props.load_defaults({"color": o.color.name(), "width": o.ancho,
+            # el grosor visible es el del pincel de ocultar cuando esa
+            # herramienta manda, si no el del trazo de dibujo
+            grosor = o.pixel_grosor if modo == "pixelate" else o.ancho
+            self.props.load_defaults({"color": o.color.name(), "width": grosor,
                                       "dash": o.dash, "cap_start": o.cap_inicio,
                                       "cap_end": o.cap_fin, "opacity": o.opacidad,
-                                      "font": o.fuente})
+                                      "font": o.fuente, "pixel_mode": o.pixel_modo,
+                                      "pixel_amount": o.pixel_cantidad})
         self.props.show_for(modo, o._seleccion)
         self.props.place_near(self.toolbar)
         if not self.props.isVisible():
@@ -1363,14 +1432,17 @@ class PresentationMode(QObject):
 
         se llama en cada activación de la pausa: sin esto, el primer clic
         para dibujar subía el overlay y dejaba tapados el panel, las
-        propiedades y hasta el chip de restaurar.
+        propiedades y hasta el chip de restaurar. con el panel minimizado
+        solo se sube el chip; nunca se resucita el panel ni las propiedades.
         """
+        if self.toolbar._minimizado:
+            chip = self.toolbar._chip
+            if chip is not None and chip.isVisible():
+                chip.raise_()
+            return
         self.toolbar.raise_()
         if self.props.isVisible():
             self.props.raise_()
-        chip = self.toolbar._chip
-        if chip is not None and chip.isVisible():
-            chip.raise_()
 
     def _despausar(self):
         self.props.hide()

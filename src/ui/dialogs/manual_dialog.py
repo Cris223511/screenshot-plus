@@ -1,13 +1,9 @@
 """manual de usuario dentro de la propia aplicación.
 
-la ventana arma el manual como una página con diseño, no como texto plano:
-tarjeta de bienvenida, pasos numerados con su círculo de color, teclas
-dibujadas como chips, tablas de atajos con encabezado de acento y filas
-alternadas, y secciones con su barrita de color. la paleta se adapta al
-tema claro u oscuro en el momento de abrir.
-
-el contenido en markdown de docs/manual.md sigue existiendo para el
-repositorio; esta vista es la versión bonita para el usuario final.
+arma el manual como una página con diseño (tarjeta de bienvenida, pasos
+numerados, teclas dibujadas como chips y tablas de atajos), adaptada al
+tema claro u oscuro. es la versión visual del contenido que también vive
+en markdown en docs/manual.md.
 """
 
 import os

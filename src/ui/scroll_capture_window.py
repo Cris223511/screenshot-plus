@@ -1,20 +1,10 @@
 """interfaz de la captura con desplazamiento.
 
-el flujo completo: un selector donde el usuario arrastra para marcar la
-zona, luego un velo oscuro que cubre toda la pantalla salvo esa zona, y la
-ventanita de control con la vista previa en vivo. el velo tiene un hueco
-de verdad (una máscara de ventana): dentro de la zona el mouse llega a la
-aplicación de abajo y el scroll funciona normal, pero afuera todo queda
-bloqueado, como corresponde a una captura en curso.
-
-mientras el usuario scrollea, cada movimiento de rueda dispara una captura
-de la zona y el cosedor del núcleo la une a la imagen larga. enter o el
-botón finalizan y la imagen pasa al editor completo; esc cancela. esas dos
-teclas se escuchan de forma global con pynput, porque el foco del teclado
-lo tiene la página que se está scrolleando, no nuestra ventana.
-
-la ventana de control está excluida de la captura de windows: aunque
-quedara dentro de la zona elegida, no saldría en la imagen.
+primero un selector marca la zona; después un velo con un hueco real deja
+pasar el mouse y el scroll solo dentro de esa zona. cada giro de rueda
+captura la franja visible y el cosedor del núcleo la une a la imagen larga,
+que al finalizar pasa al editor. enter y esc se escuchan de forma global
+porque el teclado lo tiene la página que se scrollea, no esta ventana.
 """
 
 from pynput import keyboard, mouse

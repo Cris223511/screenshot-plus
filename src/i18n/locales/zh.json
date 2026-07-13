@@ -170,5 +170,16 @@
   "prop.bg_rounded": "圆角",
   "prop.shadow": "文字阴影",
   "prop.outline": "文字描边",
-  "prop.bg_color": "背景颜色"
+  "prop.bg_color": "背景颜色",
+  "pixel.pixelate": "像素化",
+  "pixel.blur": "模糊",
+  "pixel.amount": "强度",
+  "pixel.brush": "粗细",
+  "set.reset": "全部重置",
+  "set.reset_confirm": "常规设置（语言、主题、快捷键、行为）将恢复为初始状态。不会删除任何截图，也不会更改保存文件夹。是否继续？",
+  "set.reset_yes": "重置",
+  "set.reset_shortcuts": "重置快捷键",
+  "set.recording": "录制中… 请按组合键",
+  "set.no_shortcut": "未指定",
+  "set.shortcut_hint": "点击某个快捷键并按下组合键（Alt 或 Ctrl 等修饰键加一个按键）。Esc 取消。"
 }

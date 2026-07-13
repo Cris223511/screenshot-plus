@@ -11,6 +11,7 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import QDialog, QLabel, QListWidget, QListWidgetItem, QVBoxLayout
 
 from src.i18n.translator import LANGUAGES, t, translator
+from src.ui.themes.theme_manager import theme
 
 # franjas de cada bandera: orientación y lista de (color, proporción);
 # algunas llevan dibujo propio (uk, el círculo de japón, la estrella china)
@@ -111,6 +112,13 @@ class LanguageDialog(QDialog):
 
         self._lista = QListWidget()
         self._lista.setIconSize(QSize(30, 20))
+        # scroll suave (por píxel, no por ítem) para que no salte al arrastrar
+        # la barra, igual que el manual; y sin marco duro alrededor
+        self._lista.setVerticalScrollMode(QListWidget.ScrollPerPixel)
+        self._lista.verticalScrollBar().setSingleStep(12)
+        self._lista.setFrameShape(QListWidget.NoFrame)
+        self._lista.setUniformItemSizes(True)
+        self._lista.setStyleSheet(self._estilo())
         for codigo, (nombre, pais) in LANGUAGES.items():
             item = QListWidgetItem(_bandera(codigo), f"{nombre}  ·  {pais}")
             item.setData(Qt.UserRole, codigo)
@@ -121,6 +129,31 @@ class LanguageDialog(QDialog):
         columna.addWidget(self._lista)
 
         self._lista.itemClicked.connect(self._elegir)
+
+    def _estilo(self) -> str:
+        """apariencia de la lista: filas con aire, hover suave, selección con
+        el acento y una barra de scroll fina y redondeada."""
+        acento = theme.accent()
+        claro = theme.theme == "light"
+        hover = "rgba(0,0,0,18)" if claro else "rgba(255,255,255,22)"
+        riel = "rgba(0,0,0,10)" if claro else "rgba(255,255,255,10)"
+        pulgar = "rgba(0,0,0,55)" if claro else "rgba(255,255,255,60)"
+        return f"""
+        QListWidget {{ background: transparent; outline: none; padding: 2px; }}
+        QListWidget::item {{
+            padding: 9px 10px; margin: 2px 2px; border-radius: 8px;
+        }}
+        QListWidget::item:hover {{ background: {hover}; }}
+        QListWidget::item:selected {{ background: {acento}; color: white; }}
+        QScrollBar:vertical {{
+            background: {riel}; width: 8px; margin: 2px; border-radius: 4px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: {pulgar}; min-height: 30px; border-radius: 4px;
+        }}
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: none; }}
+        """
 
     def _elegir(self, item: QListWidgetItem):
         translator.set_language(item.data(Qt.UserRole))

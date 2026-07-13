@@ -31,9 +31,9 @@ Tomar una captura, marcarla con una flecha y mandarla no debería requerir tres 
 
 | Versión | Archivo | Estado |
 | ------- | ------- | ------ |
-| 1.1.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.1.0/ScreenshotPlus.exe) | Disponible |
+| 1.2.0 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.0/ScreenshotPlus.exe) | Disponible |
 
-Basta con descargar el `.exe` y ejecutarlo. No hay instalador ni pasos adicionales; todas las versiones viven en la sección de [releases](https://github.com/Cris223511/screenshot-plus/releases).
+Basta con descargar el `.exe` y ejecutarlo. No hay instalador ni pasos adicionales; todas las versiones viven en la sección de [releases](https://github.com/Cris223511/screenshot-plus/releases) y los cambios de cada una están en el [historial de cambios](CHANGELOG.md).
 
 > **Nota sobre el aviso de Windows SmartScreen.** La primera vez que ejecutes el archivo, Windows puede mostrar "Windows protegió su PC" con editor desconocido. Es el comportamiento normal para cualquier ejecutable open source sin certificado de firma de código (que es un servicio de pago); no indica ningún problema con la aplicación, cuyo código completo puedes revisar en este repositorio. Para continuar: **Más información → Ejecutar de todas formas**. El aviso desaparece con el tiempo a medida que más personas usan el mismo archivo.
 
@@ -51,11 +51,14 @@ Basta con descargar el `.exe` y ejecutarlo. No hay instalador ni pasos adicional
 
 - **Formas** (8): rectángulo, rectángulo redondeado, elipse, triángulo, rombo, pentágono, hexágono y estrella.
 - **Líneas y flechas** con remate configurable en cada extremo por separado (nada, flecha, flecha rellena, punto, cuadrado, rombo) y cinco estilos de trazo (continuo, discontinuo, punteado, guion-punto, guion-punto-punto).
-- **Pincel** de trazo libre con grosor ajustable.
+- **Pincel** de trazo libre con grosor ajustable; con Shift el trazo sale recto.
 - **Texto** con todas las tipografías del sistema, tamaño, negrita, cursiva, subrayado, tachado, espaciado de letras, rotación, fondo (sólido o redondeado con su color), sombra y contorno. Un clic lo selecciona, doble clic reedita su contenido.
-- **Pixelado** para ocultar correos, números o cualquier dato sensible; **opacidad** para cualquier elemento; e **imágenes** pegadas con Ctrl + V.
+- **Pincel de ocultar** para tapar correos, números o cualquier dato sensible: se pinta como un trazo y al soltar queda **pixelado o difuminado**, con intensidad y grosor a elección. También **opacidad** para cualquier elemento e **imágenes** pegadas con Ctrl + V.
+- **Borrador** para quitar anotaciones tocándolas, con grosor configurable.
+- **Selección múltiple**: Shift + clic suma o quita elementos, o los rodeas con un recuadro elástico, y los editas o borras a todos a la vez. La barra muestra solo las opciones comunes a lo seleccionado.
 - **Edición posterior**: cualquier elemento ya dibujado se selecciona, se mueve, se redimensiona por sus tiradores y se le cambia color, grosor o estilo desde la misma barra, en vivo. Al terminar de dibujar queda seleccionado, listo para acomodar.
 - **Modificadores estilo diseño**: Shift endereza líneas (pasos de 15°), hace formas proporcionadas, conserva la proporción al estirar y mueve en recto; Alt crece desde el centro; Alt + arrastre duplica el elemento.
+- **Atajos de letra** para cambiar de herramienta al vuelo (V selección, S formas, L línea, F flecha, B pincel, T texto, P ocultar, E borrador).
 - Deshacer (Ctrl + Z, movimientos incluidos), rehacer (Ctrl + Y), borrar elemento (Supr), restaurar todo, copiar (Ctrl + C) y guardar (Ctrl + S).
 
 ### Pizarra de presentación
@@ -72,12 +75,13 @@ Pensada para clases y reuniones: un panel lateral flotante que pausa la pantalla
 
 ### Aplicación
 
-- **Atajos globales** funcionando aunque la app esté en la bandeja, todos personalizables, silenciados cuando hay un juego a pantalla completa al frente.
+- **Atajos globales** funcionando en todo momento, incluso sobre juegos y navegadores a pantalla completa; todos personalizables. Solo la pizarra de presentación se calla ante un juego o app a pantalla completa (no ante un navegador).
 - **9 idiomas**: español (por defecto), inglés, portugués, francés, alemán, italiano, japonés, chino y ruso. El cambio se aplica al instante, sin reiniciar.
 - **14 formatos de guardado**: PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO y TGA, con calidad ajustable donde aplica y opción de abrir la carpeta al guardar.
 - **Tema claro y oscuro**, panel siempre adelante con pin, notificaciones y tooltips animados propios.
 - **Instancia única**: ejecutar el `.exe` dos veces no duplica la app, trae la que ya corre.
-- **Arranque con Windows** y arranque minimizado en la bandeja, opcionales.
+- **Arranque con Windows** (que abre minimizado en la bandeja) y arranque directo a la bandeja, opcionales.
+- **Restablecer la configuración** desde Opciones, sin borrar ninguna captura ni cambiar tu carpeta de guardado.
 - **Comprobación de actualizaciones** contra las releases de este repositorio, sin servidores propios ni telemetría.
 - **Manual de usuario y acerca de integrados**: nada te redirige fuera de la aplicación.
 - La carpeta de guardado se recuerda entre sesiones; la última que uses será la próxima en abrirse.
@@ -148,7 +152,7 @@ screenshot-plus/
 └── src/
     ├── config/                 preferencias, rutas seguras y atajos
     ├── core/                   captura, costura de scroll, portapapeles, guardado
-    ├── i18n/                   traductor y los 6 idiomas en json
+    ├── i18n/                   traductor y los 9 idiomas en json
     ├── ui/
     │   ├── overlays/           selección con editor, modo presentación, panel flotante
     │   ├── dialogs/            opciones, acerca de, manual, idioma

@@ -14,11 +14,16 @@ _CLAVE = r"Software\Microsoft\Windows\CurrentVersion\Run"
 _NOMBRE = "ScreenshotPlus"
 
 
+# la bandera avisa que la app arrancó sola con windows; con ella se queda en
+# la bandeja sin mostrar el panel, sin importar la configuración de inicio
+ARG_BANDEJA = "--tray"
+
+
 def _comando() -> str:
     if getattr(sys, "frozen", False):
-        return f'"{sys.executable}"'
+        return f'"{sys.executable}" {ARG_BANDEJA}'
     principal = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "main.py"))
-    return f'"{sys.executable}" "{principal}"'
+    return f'"{sys.executable}" "{principal}" {ARG_BANDEJA}'
 
 
 def enable():
