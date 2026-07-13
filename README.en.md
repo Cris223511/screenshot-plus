@@ -101,7 +101,7 @@ Built for classes and meetings: a floating side panel that pauses the screen whe
 
 Every global hotkey can be changed in Options → Hotkeys by pressing the new combination.
 
-## Usage in 20 seconds
+## Usage
 
 1. Open `ScreenshotPlus.exe`. The panel shows up and the app stays alive in the system tray.
 2. Alt + A, drag over the area, annotate whatever you need with the toolbar.

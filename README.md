@@ -101,7 +101,7 @@ Pensada para clases y reuniones: un panel lateral flotante que pausa la pantalla
 
 Todos los atajos globales se cambian desde Opciones → Acceso rápido, presionando la combinación nueva.
 
-## Uso en 20 segundos
+## Uso
 
 1. Abre `ScreenshotPlus.exe`. El panel aparece y la app queda viva en la bandeja del sistema.
 2. Alt + A, arrastra sobre la zona, anota lo que necesites con la barra de herramientas.
