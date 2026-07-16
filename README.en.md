@@ -5,7 +5,7 @@
 <h1 align="center">Screenshot Plus</h1>
 
 <p align="center">
-  Screenshot tool for Windows. Capture, annotate, pixelate, stitch long pages while scrolling,
+  Screenshot tool for Windows. Capture, annotate, hide information, stitch long pages by scrolling,
   and present with live zoom and a laser pointer. A single portable executable, free and open source.
 </p>
 
@@ -25,7 +25,7 @@
 
 ## Why
 
-Taking a screenshot, marking it with an arrow and sending it should not require three programs or a subscription. The tools that do this well are usually paid, watermark your images or come stuffed with ads; the free ones fall short at annotating, capturing scrolling pages or presenting live. Screenshot Plus puts that whole workflow into a single portable executable, with no installation, no account and nothing paid inside.
+Taking a screenshot, marking it with an arrow and sending it should not require three programs or a subscription. The tools that do this well are usually paid, add a watermark or come loaded with ads. The free ones fall short when it comes to annotating, capturing a full scrolling page or presenting live. Screenshot Plus brings that whole workflow together into a single portable executable, with no installation, no account and no paid features.
 
 ## Downloads
 
@@ -33,58 +33,59 @@ Taking a screenshot, marking it with an arrow and sending it should not require 
 | ------- | ---- | ------ |
 | 1.2.2 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.2/ScreenshotPlus.exe) | Available |
 
-Just download the `.exe` and run it. There is no installer and no extra steps; every version lives in the [releases](https://github.com/Cris223511/screenshot-plus/releases) section, and what changed in each one is in the [changelog](CHANGELOG.md).
+Just download the `.exe` and run it. There is no installer and no extra steps. Every version is in the [releases](https://github.com/Cris223511/screenshot-plus/releases) section, and what changed in each one is detailed in the [changelog](CHANGELOG.md).
 
-> **About the Windows SmartScreen warning.** The first time you run the file, Windows may show "Windows protected your PC" with an unknown publisher. That is the normal behavior for any open source executable without a code signing certificate, a paid service, and it does not indicate any problem with the application, whose full source code you can review in this repository. Click **More info** and then **Run anyway**. The warning fades away over time as more people run the same file.
+> **About the Windows SmartScreen warning.** The first time you run the file, Windows may show "Windows protected your PC" and report an unknown publisher. This is the normal behavior for any program whose author has not paid for a code signing certificate, a paid service that lets Windows recognize the developer. It does not mean the file has a problem, and its full source code is available in this repository for anyone who wants to review it. To open it, click **More info** and then **Run anyway**. The warning stops appearing over time, as more people download and run the same file.
 
 ## Features
 
 ### Capture
 
-- Region (Alt + A). The screen freezes, you drag over the area and on release the annotation editor opens. The selection itself can be moved and resized before you decide.
-- Full screen (Alt + S) and active window (Alt + W). The same editor, with the area preselected automatically, so you annotate if you want and choose between copying or saving.
-- Scrolling capture (Alt + D). You pick the area, the rest of the screen gets locked behind a veil, and as you scroll the app stitches the content into one long image with a live preview. The stitching tolerates visual noise such as font smoothing or a blinking cursor, and it discards repeated frames. When you finish, the image opens in a scrollable editor.
-- Everything is captured at the monitor's native resolution, lossless, even with Windows scaling at 125 or 150 %.
-- The app's own panel steps aside when capturing, so it never shows up in your shots.
+- **Region** (Alt + A). The screen freezes and you drag the cursor to draw a rectangle over the area you want to capture. On release, the annotation editor opens. Before you continue, that rectangle can be moved and resized to fine-tune the selection.
+- **Full screen** (Alt + S) and **active window** (Alt + W). Both open the same editor with the area already selected, the whole screen in one case and the window you had in the foreground in the other. You annotate if you need to, then choose to copy or save.
+- **Scrolling capture** (Alt + D). Made for content that does not fit on screen, such as a web page or a long document. You pick the area, the rest of the screen is covered by a dark layer, and as you scroll the content with the mouse wheel the app joins each visible portion into a single long image, with a preview that updates in real time. The stitching tolerates the usual visual noise, such as font smoothing or a blinking cursor, and discards repeated portions so nothing is duplicated. When you finish, the image opens in a scrollable editor.
+- Every capture is taken at the monitor's native resolution, lossless, even when Windows applies 125 or 150 % scaling.
+- The application's own window is excluded from capture at the operating system level. Even if the panel is visible on screen when you capture, it does not appear in the resulting image, so there is no need to move it aside or close it first.
 
 ### Annotation editor
 
-- Eight shapes, from the rectangle and rounded rectangle to the ellipse, triangle, diamond, pentagon, hexagon and star.
-- Lines and arrows with a configurable cap on each end independently (none, arrow, filled arrow, dot, square or diamond) and five stroke styles (solid, dashed, dotted, dash-dot and dash-dot-dot).
-- Brush for free drawing with adjustable thickness, and Shift gives you a straight stroke.
-- Text with every system font, size, bold, italic, underline, strikethrough, letter spacing, rotation, background (solid or rounded with its own color), shadow and outline. One click selects it and a double click reopens its content.
-- Hide brush to cover sensitive data. Paint a stroke and, on release, it becomes pixelated or blurred, with adjustable intensity and thickness. There is also opacity for any element and images pasted with Ctrl + V.
-- Eraser to remove annotations by touching them, with adjustable thickness.
-- Multi-selection. Shift + click adds or removes elements, or you wrap them with a rubber band, then edit or delete them all at once. The toolbar only shows the options common to the selection.
-- Everything stays editable. Any drawn element can be selected, moved, resized by its handles, and restyled from the same toolbar, live. It stays selected right after you draw it, ready to place.
-- Design-style modifiers. Shift straightens lines in 15° steps, makes shapes proportional, keeps the ratio when resizing and moves in a straight line; Alt grows from the center; Alt + drag duplicates the element.
-- Letter shortcuts to switch tools on the fly (V select, S shapes, L line, F arrow, B brush, T text, P hide, E eraser).
-- Undo (Ctrl + Z, moves included), redo (Ctrl + Y), delete element (Del), reset all, copy (Ctrl + C) and save (Ctrl + S).
+- **Eight shapes**: rectangle, rounded rectangle, ellipse, triangle, diamond, pentagon, hexagon and star.
+- **Lines and arrows** with the cap on each end configurable independently (no cap, arrow, filled arrow, dot, square or diamond) and five stroke styles (solid, dashed, dotted, dash-dot and dash-dot-dot).
+- **Brush** for free drawing with adjustable thickness. Hold Shift and the stroke comes out straight.
+- **Text** with every font installed on the system, plus size, bold, italic, underline, strikethrough, letter spacing, rotation, background color (solid or with rounded corners), shadow and outline. One click selects the text and a double click opens it again to edit its content.
+- **Hide tool** to cover any part of the image. You paint over the area and, on release, that area becomes pixelated or blurred, with the intensity and thickness you choose.
+- **Opacity** adjustable on any element, and **images** pasted from the clipboard with Ctrl + V.
+- **Eraser** that removes the annotations it touches, with configurable thickness.
+- **Multi-selection**. Shift and a click add or remove elements one by one, and you can also enclose several by drawing a selection rectangle with the mouse. The selected elements are edited or deleted together, and the toolbar shows only the options they have in common.
+- **Later editing**. Any element already drawn can be selected again to move it, resize it from its handles, or change its color, thickness and style from the same toolbar, with the change reflected instantly. Right after you draw an element it stays selected, ready to reposition.
+- **Design-editor modifiers**. Shift straightens lines in 15 degree steps, keeps the proportions of shapes and elements when resizing, and constrains movement to horizontal or vertical. Alt grows the shape from its center. Alt together with a drag duplicates the element.
+- **Single-letter shortcuts** to switch tools without going to the toolbar (V select, S shapes, L line, F arrow, B brush, T text, P hide, E eraser).
+- Undo (Ctrl + Z, which includes moves), redo (Ctrl + Y), delete the selected element (Del), reset all, copy (Ctrl + C) and save (Ctrl + S).
 
 ### Presentation whiteboard
 
-Built for classes and meetings. It is a floating side panel that pauses the screen when you need it, turns it into a whiteboard, and hands it back untouched when you leave.
+Built for classes and meetings. It is a side panel that stays floating over the other windows. When you activate a tool, it freezes the screen image and turns it into a whiteboard you can draw on. When you leave, the screen returns to normal, with no marks left behind.
 
-- Side panel with visible (and configurable) shortcut letters, draggable to any edge and collapsible into a floating chip.
-- The tools run from wheel zoom (Z) to selection with a rubber band and handle editing (V), hand (H), eraser (E), brush (P), line (I), arrow (F), shapes (S, which cycle through the eight on repeat), text (T), highlighter (R) and laser pointer with a configurable trail (L).
-- Beside the panel there is a properties popup with colors (recents and hex code), thickness, stroke styles, arrow endpoints, opacity and the full text options. With something selected it loads its values and edits it live, even several at once.
-- Inserted images from file or pasted with Ctrl + V, which you then move and resize.
-- With the panel minimized, each tool responds to Alt + its letter from any window.
-- Action-based undo and redo, which also bring back what was erased or cleared.
-- Built-in capture. Ctrl + C copies the whole board with drawings, Ctrl + S saves it, and Ctrl + A crops just a piece.
+- **Side panel** that shows the shortcut letter of each tool (letters you can reassign). It can be dragged to any edge of the screen and shrinks to a small floating button when you are not using it.
+- **Tools**: zoom with the mouse wheel (Z), selection and handle editing (V), a hand to pan the view (H), eraser (E), brush (P), line (I), arrow (F), shapes (T for text and S for the geometric shapes; each press of S moves to the next of the eight available shapes), highlighter (R) and a laser pointer with a configurable trail length (L).
+- **Properties panel** next to the toolbar, with recently used colors and a field for the hex code, thickness, stroke styles, arrow caps, opacity and all the text options. If something is selected, the panel loads its values and changes apply live, even across several elements at once.
+- **Images** inserted from a file or pasted with Ctrl + V, which you then move and resize.
+- With the panel shrunk to its floating button, each tool still responds to Alt plus its letter from any window.
+- **Undo and redo** by action, which also bring back what was erased or cleared at once.
+- **Built-in capture**. Ctrl + C copies the whole board with the drawings, Ctrl + S saves it, and Ctrl + A crops and saves only the part you select.
 
 ### Application
 
-- Global hotkeys that work at all times, even over fullscreen games and browsers, all customizable. Only the presentation whiteboard mutes itself for a fullscreen game or app, not for a browser.
-- Nine languages, from Spanish by default to English, Portuguese, French, German, Italian, Japanese, Chinese and Russian. Switching applies instantly, no restart.
-- Fourteen save formats, among them PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO and TGA, with adjustable quality where it applies and an option to open the folder after saving.
-- Light and dark themes, always-on-top pin, custom animated notifications and tooltips.
-- Single instance. Running the `.exe` twice does not duplicate the app, it brings up the one already running.
-- Start with Windows, which opens minimized to the tray, and start straight in the tray, both optional.
-- Reset settings from Options, without deleting any screenshot or changing your save folder.
-- Update checking against this repository's releases, with no servers of its own and no telemetry.
-- Built-in user manual and about window, so nothing takes you outside the application.
-- The save folder is remembered between sessions; the last one you use is the next one to open.
+- **Global hotkeys** active at all times, even over fullscreen games and browsers, and all customizable. Only the presentation whiteboard turns itself off for a fullscreen game or app; over a fullscreen browser it stays available.
+- **Nine languages**: Spanish (default), English, Portuguese, French, German, Italian, Japanese, Chinese and Russian. The change applies instantly, with no restart.
+- **Fourteen save formats**: PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO and TGA, with adjustable quality on the ones that support it and the option to open the folder after saving.
+- **Light and dark themes**, a button to keep the panel above every other window, and notifications and tooltips with their own animation.
+- **Single instance**. Running the `.exe` a second time does not open another copy, it brings the running one to the front.
+- **Start with Windows**, which opens the app minimized to the system tray, and start straight in the tray. Both are optional.
+- **Reset settings** from Options, without deleting any screenshot or changing the save folder.
+- **Update check** against this repository's releases, with no servers of its own and no data collection.
+- **Built-in user manual and info window**. No link takes you outside the application, except the one that opens the repository.
+- The save folder is remembered between sessions. The last one you use is the one offered next time.
 
 ## Default hotkeys
 
@@ -103,13 +104,13 @@ Every global hotkey can be changed in Options → Hotkeys by pressing the new co
 
 ## Usage
 
-1. Open `ScreenshotPlus.exe`. The panel shows up and the app stays alive in the system tray.
-2. Alt + A, drag over the area, annotate whatever you need with the toolbar.
-3. Ctrl + C to copy or Ctrl + S to save. A notification confirms. Esc cancels at any point.
+1. Open `ScreenshotPlus.exe`. The panel appears and the app stays active in the system tray.
+2. Press Alt + A, drag over the area, and annotate whatever you need with the toolbar.
+3. Use Ctrl + C to copy or Ctrl + S to save. A notification confirms the action. Esc cancels at any moment.
 
 ## Running from source
 
-You only need Python 3.10 or later on Windows:
+You only need Python 3.10 or later on Windows.
 
 ```
 git clone https://github.com/Cris223511/screenshot-plus.git
@@ -128,22 +129,22 @@ The script installs PyInstaller if needed, converts the logo to the Windows icon
 
 ## Technology
 
-| Component | Library | Purpose |
-| --------- | ------- | ------- |
-| Interface | [PySide6](https://doc.qt.io/qtforpython-6/) (Qt) | Windows, overlays, animations, themes, tray |
-| Capture | [mss](https://github.com/BoboTiG/python-mss) | Framebuffer reads at native resolution, multi-monitor |
-| Imaging | [Pillow](https://python-pillow.org/) | Scroll stitching, export, icon |
-| Global hotkeys | [pynput](https://github.com/moses-palmer/pynput) | Keys that work with the app in the background |
-| Windows integration | [pywin32](https://github.com/mhammond/pywin32) + ctypes | Active window, registry, capture exclusion |
+| Component | Library | What it is used for |
+| --------- | ------- | ------------------- |
+| Interface | [PySide6](https://doc.qt.io/qtforpython-6/) (Qt) | Windows, overlays, animations, themes and tray |
+| Capture | [mss](https://github.com/BoboTiG/python-mss) | Screen reads at native resolution, multi-monitor |
+| Imaging | [Pillow](https://python-pillow.org/) | Long-capture stitching, export and icon creation |
+| Global hotkeys | [pynput](https://github.com/moses-palmer/pynput) | Keys that respond with the app in the background |
+| Windows integration | [pywin32](https://github.com/mhammond/pywin32) and ctypes | Active window, registry and capture exclusion |
 | Packaging | [PyInstaller](https://pyinstaller.org/) | The single portable executable |
 
-One technical detail we are proud of. Live zoom works because the app's windows are excluded from system capture (`WDA_EXCLUDEFROMCAPTURE`), and that lets it photograph the screen 25 times per second without the app seeing itself.
+One technical detail worth mentioning. Live zoom is possible because the app's windows are excluded from system capture with `WDA_EXCLUDEFROMCAPTURE`. Thanks to that, the app can photograph the screen about 25 times per second without capturing itself in the process.
 
 ## Project structure
 
 ```
 screenshot-plus/
-├── main.py                     entry point, single instance control
+├── main.py                     entry point and single instance control
 ├── assets/
 │   ├── icons/                  the interface's own SVG icons
 │   └── logo/                   application logo
@@ -151,28 +152,28 @@ screenshot-plus/
 ├── scripts/build.bat           executable build script
 └── src/
     ├── config/                 preferences, safe paths and hotkeys
-    ├── core/                   capture, scroll stitching, clipboard, saving
+    ├── core/                   capture, scroll stitching, clipboard and saving
     ├── i18n/                   translator and the 9 languages as json
     ├── ui/
-    │   ├── overlays/           selection editor, presentation mode, floating panel
-    │   ├── dialogs/            options, about, manual, language
-    │   ├── widgets/            animated buttons, palette, icons
+    │   ├── overlays/           selection editor, presentation mode and floating panel
+    │   ├── dialogs/            options, info, manual and language
+    │   ├── widgets/            animated buttons, palette and icons
     │   └── themes/             light and dark themes (qss)
-    └── utils/                  global hotkeys, single instance, autostart, updater
+    └── utils/                  global hotkeys, single instance, autostart and updates
 ```
 
 ## Settings and data
 
 - Preferences are stored in `%APPDATA%\ScreenshotPlus\settings.json`.
-- Screenshots go by default to a `Screenshot Plus` subfolder inside your real Pictures folder (asked to Windows, works in any system language).
-- The application collects no data and never connects to the internet, except when you ask it to check for updates (a single request to GitHub's public API).
+- Screenshots go by default to a `Screenshot Plus` subfolder inside your real Pictures folder, which is asked to Windows and works in any system language.
+- The application collects no data and never connects to the internet, except when you ask it to check for updates, at which point it makes a single request to GitHub's public API.
 
 ## Contributing
 
-Bug reports and ideas are welcome in the [issues](https://github.com/Cris223511/screenshot-plus/issues). If you want to contribute code, open a pull request; the project runs with `python main.py` and no extra setup.
+Bug reports and ideas are welcome in the [issues](https://github.com/Cris223511/screenshot-plus/issues). To contribute code, open a pull request. The project runs with `python main.py` and no extra setup.
 
 ## License
 
-MIT © [Cris223511](https://github.com/Cris223511). Use it, modify it and share it freely; the full text is in [LICENSE](LICENSE).
+MIT © [Cris223511](https://github.com/Cris223511). You can use it, modify it and share it freely. The full text is in the [LICENSE](LICENSE) file.
 
 If the application is useful to you, a star on the repository helps more people find it.
