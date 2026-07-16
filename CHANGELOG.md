@@ -6,13 +6,13 @@ El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com
 
 ## 1.2.2 (2026-07-16)
 
-Esta versión corrige cinco molestias del uso diario. Tocan el arranque junto a Windows, el cierre de la captura de región al guardar, la tecla Escape, la exactitud de los atajos globales y la captura con desplazamiento.
+Esta versión corrige cinco errores que afectaban al funcionamiento habitual de la aplicación. Se resuelven problemas en el arranque junto a Windows, en el cierre de la captura de región al guardar, en el comportamiento de la tecla Escape, en la exactitud de los atajos globales y en la captura con desplazamiento.
 
-- El arranque junto a Windows ahora sí ocurre al encender el equipo. Antes se apuntaba solo a la clave de inicio del registro y, con un ejecutable portable y sin firma, muchas veces no corría. Ahora se registra por dos caminos a la vez, la clave del registro y un acceso directo en la carpeta de Inicio, y encima se quita del propio `.exe` la marca de "descargado de internet", que era la que hacía que SmartScreen bloqueara el arranque automático. La aplicación se levanta minimizada en la bandeja y no abre la ventana.
-- Guardar una captura de región cierra el recorte. Antes, al guardar una zona con Ctrl + S, se cerraba el diálogo de archivo pero el recorte y su capa oscura se quedaban en pantalla y tocaba cerrarlos a mano. Ahora, apenas se confirma el guardado, se cierra todo y la aplicación vuelve a donde estaba, la bandeja o el panel. El editor de captura larga y la pizarra se quedan abiertos, que ahí sí conviene continuar el trabajo.
-- Escape cancela al primer toque. Cuando la captura de región saltaba con el atajo desde otra aplicación, la superposición no siempre se quedaba con el foco del teclado, así que el primer Escape se perdía y había que darle varias veces. Ahora la superposición toma el foco por su cuenta apenas aparece y Escape cancela a la primera, sin excepción.
-- Los atajos globales responden solo a la combinación exacta. Si el atajo es Alt + A, pulsar Ctrl + Alt + A ya no lo dispara, y tampoco lo hace si traías otra tecla pulsada de antes. Vale igual para cualquier atajo que tengas configurado.
-- La captura con desplazamiento quedó rehecha por dentro. La vista previa mostraba a veces una zona que no tenía nada que ver con lo seleccionado. El problema estaba en la máscara de recorte de la capa oscura, que en pantallas con escalado quedaba corrida, de modo que uno desplazaba un sitio y se capturaba otro. Se reemplazó por una capa que deja pasar el ratón entero, sin máscara, así lo que ves moverse es justo lo que se captura. La unión de los fotogramas trabaja en los dos sentidos, hacia arriba acumula por encima y hacia abajo por debajo, sin repetir ni recortar, y descarta los fotogramas casi vacíos que ensuciaban el resultado.
+- Se corrige el arranque junto a Windows, que en muchos equipos no se producía al iniciar sesión. Hasta ahora solo se registraba una entrada en la clave de inicio del registro y, con un ejecutable portable y sin firma, esa vía no siempre bastaba. La aplicación pasa a registrarse por dos medios a la vez, la clave del registro y un acceso directo en la carpeta de Inicio, y además retira del propio `.exe` la marca de "descargado de internet", que era la que provocaba que SmartScreen bloqueara el inicio automático. La aplicación arranca minimizada en la bandeja del sistema, sin abrir la ventana.
+- Al guardar una captura de región, la superposición ahora se cierra por completo. Antes, tras guardar una zona con Ctrl + S, se cerraba el diálogo de archivo pero el recorte y su capa oscura permanecían en pantalla y había que cerrarlos de forma manual. En cuanto se confirma el guardado, se cierra toda la superposición y la aplicación regresa a su estado anterior, la bandeja o el panel. El editor de captura larga y la pizarra permanecen abiertos, ya que en ellos sí resulta útil continuar el trabajo.
+- La tecla Escape vuelve a cancelar a la primera pulsación. Cuando la captura de región se activaba con el atajo desde otra aplicación, la superposición no siempre recibía el foco del teclado, de modo que el primer Escape se perdía y era necesario pulsarlo varias veces. La superposición reclama ahora el foco de forma activa en cuanto aparece, con lo que Escape cancela al primer intento en todos los casos.
+- Los atajos globales pasan a responder únicamente a la combinación exacta. Si el atajo configurado es Alt + A, la pulsación de Ctrl + Alt + A ya no lo activa, y tampoco lo hace si había otra tecla pulsada con anterioridad. El criterio se aplica a cualquier atajo definido.
+- La captura con desplazamiento se rehízo por completo. La vista previa mostraba en ocasiones una zona distinta de la seleccionada, porque la máscara de recorte de la capa oscura quedaba desplazada en pantallas con escalado y el área que se movía no coincidía con la que se capturaba. En su lugar se emplea una capa que deja pasar el ratón en su totalidad, sin máscara, de manera que lo que se ve desplazarse coincide con exactitud con lo que se captura. La unión de los fotogramas funciona ahora en ambos sentidos, con acumulación por encima al subir y por debajo al bajar, sin repetición ni recorte, y descarta los fotogramas casi vacíos que deterioraban el resultado.
 
 ## 1.2.1 (2026-07-13)
 
@@ -36,12 +36,12 @@ La mayor parte de las novedades se concentran en el editor de la captura de regi
 ### Herramientas nuevas
 
 - El borrador (E) quita las anotaciones que su círculo toca, con grosor ajustable.
-- El pincel de ocultar se rehízo. Ahora se traza con contorno azul y, al soltar, la zona queda pixelada o difuminada, a tu elección, con intensidad y grosor ajustables. No se selecciona ni se mueve, y solo el borrador lo quita.
+- El pincel de ocultar se rehízo. Ahora se traza con contorno azul y, al soltar, la zona queda pixelada o difuminada, según se prefiera, con intensidad y grosor ajustables. No se selecciona ni se mueve, y solo el borrador lo elimina.
 - Con Shift, tanto el pincel como el pincel de ocultar sacan el trazo recto desde el punto de partida.
 
 ### Recorte de la captura
 
-- Un tirador dedicado desplaza la zona seleccionada, en lugar de arrastrarla por dentro, para no moverla sin querer cuando vas a copiar.
+- Un tirador dedicado desplaza la zona seleccionada, en lugar de arrastrarla por su interior, para evitar moverla de forma accidental al copiar.
 - El recorte se ajusta contra un ancla fija, con un tamaño mínimo, y se invierte si cruzas el lado opuesto, sin trabarse.
 - La barra de herramientas se recoloca en tiempo real mientras mueves o redimensionas el recorte, y nunca queda por encima de él.
 - Cada tirador de redimensionado muestra su cursor direccional, y una lupa de aumento acompaña al cursor durante la selección para acertar el borde exacto.
@@ -80,15 +80,15 @@ La mayor parte de las novedades se concentran en el editor de la captura de regi
 - El pincel ya no rellena en negro. Un trazo que se cruzaba consigo mismo rellenaba su interior mientras lo dibujabas; ahora solo traza la línea.
 - El redimensionado ya no se bloquea. Al reducir mucho el recorte o cruzar el lado opuesto se trababa; ahora fluye e invierte el sentido, con un tamaño mínimo respetado.
 - El panel minimizado ya no reaparece solo. Volvía a mostrarse al capturar, copiar o cerrar; ahora se queda oculto hasta que lo abres a propósito.
-- Guardar ya no cierra el editor. Ctrl + S cerraba la edición; ahora el diálogo se abre encima y puedes seguir.
+- Guardar ya no cierra el editor. Ctrl + S cerraba la edición; ahora el diálogo se abre encima y permite continuar.
 - Esc funciona sin selección previa. Antes no cancelaba la captura hasta tocar el ratón; ahora cancela desde el primer momento.
 - El foco vuelve tras capturar. El teclado no regresaba a la ventana anterior; ahora vuelve a la aplicación en la que estabas.
 
 ## 1.1.0 (2026-07-09)
 
-El editor de anotaciones y la pizarra de presentación crecen bastante, y se suman formatos de guardado e idiomas.
+El editor de anotaciones y la pizarra de presentación se amplían de forma considerable, y se suman formatos de guardado e idiomas.
 
-- El editor de anotaciones creció mucho. Trae ocho formas, líneas y flechas con remate configurable en cada extremo y cinco estilos de trazo, texto con todas las tipografías del sistema más subrayado, tachado, espaciado, rotación, fondo, sombra y contorno, opacidad e imágenes pegadas. Todo elemento queda seleccionado al dibujarlo y se edita en vivo, con Shift para enderezar y proporcionar, Alt para crecer desde el centro y Alt + arrastre para duplicar.
+- El editor de anotaciones se amplía de forma considerable. Incorpora ocho formas, líneas y flechas con remate configurable en cada extremo y cinco estilos de trazo, texto con todas las tipografías del sistema más subrayado, tachado, espaciado, rotación, fondo, sombra y contorno, opacidad e imágenes pegadas. Todo elemento queda seleccionado al dibujarlo y se edita en vivo, con Shift para enderezar y proporcionar, Alt para crecer desde el centro y Alt + arrastre para duplicar.
 - La pizarra de presentación funciona por pausa. El panel lateral queda flotante y se minimiza a un distintivo, y la pantalla se congela al activar una herramienta. Incluye panel de propiedades, puntero láser con estela configurable y atajos globales Alt + letra que siguen activos con el panel minimizado y se apagan ante juegos a pantalla completa.
 - Catorce formatos de guardado, con WEBP, AVIF, HEIC e ICO entre ellos, y tres idiomas nuevos, el japonés, el chino y el ruso, para un total de nueve.
 - Selector de color en el idioma de la aplicación, tooltips y manual con diseño propio, tema oscuro homogéneo en los paneles y logotipo nuevo.
