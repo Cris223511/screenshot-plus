@@ -10,7 +10,7 @@ porque el teclado lo tiene la página que se scrollea, no esta ventana.
 from pynput import keyboard, mouse
 from PySide6.QtCore import QObject, QRect, QRectF, QTimer, Qt, Signal
 from PySide6.QtGui import (QColor, QGuiApplication, QImage, QPainter, QPen,
-                           QPixmap, QRegion)
+                           QPixmap)
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from src.core import capture
@@ -34,6 +34,16 @@ class _RegionPicker(QWidget):
         self._origen = None
         self._sel = QRectF()
         self.setCursor(Qt.CrossCursor)
+        # con foco de teclado el esc cancela desde que aparece el selector
+        self.setFocusPolicy(Qt.StrongFocus)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        # se fuerza el foco para que el esc cancele a la primera aunque el
+        # selector se abra por encima de otra aplicación
+        self.activateWindow()
+        self.setFocus()
+        capture.force_foreground(int(self.winId()))
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:
@@ -81,31 +91,36 @@ class _RegionPicker(QWidget):
 
 
 class _DimOverlay(QWidget):
-    """velo con hueco que bloquea la pantalla durante la captura.
+    """velo que oscurece la pantalla alrededor de la zona a capturar.
 
-    la máscara recorta la zona elegida de la propia ventana, así que ahí
-    ni se pinta ni se reciben eventos: el mouse atraviesa el hueco y llega
-    a la página de abajo, que es justo lo que hace falta para scrollear.
-    todo lo demás queda tapado y sin clics.
+    la ventana es transparente al ratón (WindowTransparentForInput), así que
+    el scroll y los clics atraviesan hacia la página de abajo en cualquier
+    punto, sin depender de una máscara recortada (que se descuadraba con el
+    escalado de windows y hacía capturar una zona distinta a la elegida). la
+    zona queda limpia y solo se oscurece lo de alrededor, como guía visual.
     """
 
     def __init__(self, zona_logica: QRect):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+                         | Qt.Tool | Qt.WindowTransparentForInput)
         self.setAttribute(Qt.WA_DeleteOnClose, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setGeometry(QGuiApplication.primaryScreen().virtualGeometry())
         self._zona = zona_logica
-        self.setWindowOpacity(0.4)
-        # el hueco, con un respiro de un par de píxeles para que el borde
-        # pintado no invada la zona capturada
-        self.setMask(QRegion(self.rect()) - QRegion(zona_logica.adjusted(0, 0, 0, 0)))
 
     def paintEvent(self, _):
         pintor = QPainter(self)
-        pintor.fillRect(self.rect(), QColor("#000000"))
-        pintor.setPen(QPen(QColor(theme.accent()), 4))
+        velo = QColor(0, 0, 0, 100)
+        z = QRectF(self._zona)
+        # cuatro franjas alrededor de la zona; el centro queda transparente
+        pintor.fillRect(QRectF(0, 0, self.width(), z.top()), velo)
+        pintor.fillRect(QRectF(0, z.bottom(), self.width(), self.height() - z.bottom()), velo)
+        pintor.fillRect(QRectF(0, z.top(), z.left(), z.height()), velo)
+        pintor.fillRect(QRectF(z.right(), z.top(), self.width() - z.right(), z.height()), velo)
+        pintor.setPen(QPen(QColor(theme.accent()), 3))
         pintor.setBrush(Qt.NoBrush)
-        pintor.drawRect(QRectF(self._zona).adjusted(-2, -2, 2, 2))
+        pintor.drawRect(z.adjusted(-1.5, -1.5, 1.5, 1.5))
         pintor.end()
 
 
@@ -190,9 +205,12 @@ class ScrollCaptureWindow(QWidget):
         self._puente.finish_key.connect(self._finalizar)
         self._puente.cancel_key.connect(self._cancelar)
 
+        # la espera junta la ráfaga de scroll en una captura cuando la pantalla
+        # asienta; corta, para tomar incrementos chicos cuando se scrollea
+        # despacio y no perder tramos si el contenido salta mucho
         self._espera = QTimer(self)
         self._espera.setSingleShot(True)
-        self._espera.setInterval(240)
+        self._espera.setInterval(140)
         self._espera.timeout.connect(self._capturar_tramo)
 
         self._raton = mouse.Listener(on_scroll=lambda *_: self._puente.scrolled.emit())
@@ -265,6 +283,10 @@ class ScrollCaptureWindow(QWidget):
         if self._terminada:
             return
         self._terminada = True
+        # una última toma recoge lo que quedó visible al soltar, por si la
+        # ráfaga de scroll terminó justo antes de la espera
+        self._espera.stop()
+        self._capturar_tramo()
         self._detener()
         imagen = self._stitcher.image
         self.close()
