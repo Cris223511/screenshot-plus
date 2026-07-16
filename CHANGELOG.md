@@ -4,6 +4,16 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/): el primer número indica cambios mayores, el segundo funciones nuevas y el tercero correcciones.
 
+## 1.2.2 (2026-07-16)
+
+Ronda de correcciones sobre cosas que molestaban en el uso diario: el arranque con Windows, el cierre de la captura al guardar, la tecla Escape, la exactitud de los atajos globales y la captura con desplazamiento.
+
+- **Arranque con Windows más fiable:** antes se apuntaba solo a la clave de inicio del registro y, con un ejecutable portable y sin firma, no siempre corría al encender el equipo. Ahora se registra por dos vías a la vez, la clave del registro y un acceso directo en la carpeta de Inicio, y además se retira del propio `.exe` la marca de "descargado de internet", que es la que hacía que SmartScreen frenara el arranque automático. La app se levanta minimizada en la bandeja, sin abrir la ventana.
+- **Guardar cierra la captura de región:** al capturar una zona y guardarla con *Ctrl + S*, se cerraba el diálogo de archivo pero el recorte y su capa oscura quedaban en pantalla y había que cerrarlos a mano. Ahora, en cuanto se confirma el guardado, se cierra todo y la app vuelve a su sitio (bandeja o panel según cómo estuviera). El editor de captura larga y la pizarra siguen abiertos, porque ahí sí tiene sentido seguir trabajando.
+- **Escape cancela a la primera:** cuando la captura de región se disparaba con el atajo desde otra aplicación, la superposición no siempre se quedaba con el foco del teclado, así que el primer *Escape* se perdía y había que pulsarlo varias veces. Ahora, al aparecer, la superposición reclama el foco de forma activa y *Escape* cancela al primer toque, siempre.
+- **Atajos globales exactos:** el atajo solo responde a la combinación puesta, ni una tecla de más. Si el atajo es *Alt + A*, pulsar *Ctrl + Alt + A* ya no lo dispara, y tampoco lo hace si venías pulsando otra tecla antes. Vale para cualquier atajo configurado.
+- **Captura con desplazamiento rehecha:** la vista previa mostraba a veces una zona que no tenía que ver con lo seleccionado. La causa era la máscara de recorte de la capa oscura, que en pantallas con escalado quedaba corrida, de modo que se desplazaba un sitio y se capturaba otro. Se rehízo con una capa que deja pasar el ratón por completo, sin máscara, así lo que ves desplazarse es exactamente lo que se está capturando. El cosido de los fotogramas ahora va en las dos direcciones (hacia arriba se acumula por encima y hacia abajo por debajo, sin repetir ni recortar) y descarta los fotogramas casi vacíos que ensuciaban el resultado.
+
 ## 1.2.1 (2026-07-13)
 
 Corrección de un error de arranque en el ejecutable. No hay cambios de funciones respecto a la 1.2.0.
