@@ -573,9 +573,16 @@ class SelectionOverlay(QWidget):
     def showEvent(self, e):
         super().showEvent(e)
         # se reclama el foco de teclado apenas aparece, así el esc cancela
-        # aunque todavía no se haya tocado nada con el mouse
+        # aunque todavía no se haya tocado nada con el mouse. cuando la captura
+        # se dispara desde otra app (el navegador), windows no cede el foco sin
+        # más: el forzado engancha la entrada del hilo activo y trae el overlay
+        # de verdad al frente, para que el esc responda a la primera siempre
         self.activateWindow()
         self.setFocus()
+        capture.force_foreground(int(self.winId()))
+        # una segunda pasada apenas termina de mapearse la ventana asegura el
+        # foco incluso si la primera llegó demasiado pronto
+        QTimer.singleShot(0, lambda: capture.force_foreground(int(self.winId())))
         # con selección preestablecida, la barra aparece apenas el overlay
         # está en pantalla; el retraso de cero cede el turno al layout
         if self._fase == "editando" and not self._barra.isVisible():
@@ -808,9 +815,9 @@ class SelectionOverlay(QWidget):
         self.close()
 
     def _guardar(self):
-        # guardar no cierra la edición: el diálogo aparece encima y, se
-        # confirme o se cancele, el editor sigue tal cual para seguir
-        # trabajando sobre la misma captura
+        # se exporta y se avisa a la app; el diálogo de guardar aparece encima.
+        # si el usuario confirma, la app cierra este overlay al terminar; si
+        # cancela el diálogo, la edición sigue tal cual sobre la misma captura
         imagen = self._exportar()
         if not imagen.isNull():
             self.save_requested.emit(imagen)

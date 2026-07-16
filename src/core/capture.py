@@ -215,6 +215,38 @@ def restore_foreground(hwnd) -> None:
         pass
 
 
+def force_foreground(hwnd) -> None:
+    """trae una ventana propia al frente y le entrega el teclado de verdad.
+
+    windows no deja que una app le robe el foco a otra; cuando la captura se
+    dispara con un atajo global mientras el usuario está en el navegador, el
+    overlay salía adelante pero sin teclado, y por eso el esc no cancelaba a la
+    primera. enganchar la entrada del hilo de la ventana activa a la nuestra
+    levanta ese bloqueo el instante justo para que el overlay tome el foco.
+    """
+    if not hwnd:
+        return
+    try:
+        import win32gui
+        import win32process
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        hwnd = int(hwnd)
+        activa = win32gui.GetForegroundWindow()
+        hilo_activo = win32process.GetWindowThreadProcessId(activa)[0] if activa else 0
+        mi_hilo = kernel32.GetCurrentThreadId()
+        engancha = hilo_activo and hilo_activo != mi_hilo
+        if engancha:
+            user32.AttachThreadInput(mi_hilo, hilo_activo, True)
+        user32.BringWindowToTop(hwnd)
+        user32.SetForegroundWindow(hwnd)
+        user32.SetFocus(hwnd)
+        if engancha:
+            user32.AttachThreadInput(mi_hilo, hilo_activo, False)
+    except Exception:
+        pass
+
+
 def grab_active_window() -> QImage:
     """captura de la ventana que tiene el foco en este momento.
 
