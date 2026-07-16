@@ -5,7 +5,7 @@
 <h1 align="center">Screenshot Plus</h1>
 
 <p align="center">
-  Herramienta de capturas de pantalla para Windows: captura, anota, pixela, une páginas largas con scroll
+  Herramienta de capturas de pantalla para Windows. Captura, anota, pixela, une páginas largas con scroll
   y presenta con zoom en vivo y puntero láser. Un solo ejecutable portable, gratuito y de código abierto.
 </p>
 
@@ -35,55 +35,55 @@ Tomar una captura, marcarla con una flecha y mandarla no debería requerir tres 
 
 Basta con descargar el `.exe` y ejecutarlo. No hay instalador ni pasos adicionales; todas las versiones viven en la sección de [releases](https://github.com/Cris223511/screenshot-plus/releases) y los cambios de cada una están en el [historial de cambios](CHANGELOG.md).
 
-> **Nota sobre el aviso de Windows SmartScreen.** La primera vez que ejecutes el archivo, Windows puede mostrar "Windows protegió su PC" con editor desconocido. Es el comportamiento normal para cualquier ejecutable open source sin certificado de firma de código (que es un servicio de pago); no indica ningún problema con la aplicación, cuyo código completo puedes revisar en este repositorio. Para continuar: **Más información → Ejecutar de todas formas**. El aviso desaparece con el tiempo a medida que más personas usan el mismo archivo.
+> **Nota sobre el aviso de Windows SmartScreen.** La primera vez que ejecutes el archivo, Windows puede mostrar "Windows protegió su PC" con editor desconocido. Es lo normal en cualquier ejecutable open source sin certificado de firma de código, que es un servicio de pago, y no señala ningún problema con la aplicación, cuyo código completo puedes revisar en este repositorio. Pulsa **Más información** y luego **Ejecutar de todas formas**. El aviso se va con el tiempo, a medida que más personas usan el mismo archivo.
 
 ## Características
 
 ### Captura
 
-- **Región** (Alt + A): la pantalla se congela, arrastras sobre la zona y al soltar se abre el editor de anotaciones. La selección se puede mover y redimensionar antes de decidir.
-- **Pantalla completa** (Alt + S) y **ventana activa** (Alt + W): el mismo editor, con la zona ya seleccionada automáticamente; anotas si quieres y decides entre copiar o guardar.
-- **Captura con desplazamiento** (Alt + D): eliges la zona, el resto de la pantalla queda bloqueado con un velo, y mientras haces scroll la aplicación une el contenido en una sola imagen larga con vista previa en vivo. La costura tolera ruido visual (suavizado de fuentes, cursores parpadeando) y descarta fotogramas repetidos. Al finalizar, la imagen se abre en un editor con scroll.
-- Todo se captura a **resolución nativa del monitor**, sin pérdida, incluso con escalado de Windows al 125 o 150 %.
-- El panel de la aplicación se aparta solo al capturar: nunca sale en tus fotos.
+- Región (Alt + A). La pantalla se congela, arrastras sobre la zona y al soltar se abre el editor de anotaciones. La selección se mueve y se redimensiona antes de que decidas.
+- Pantalla completa (Alt + S) y ventana activa (Alt + W). El mismo editor, con la zona ya elegida sola. Anotas si quieres y eliges entre copiar o guardar.
+- Captura con desplazamiento (Alt + D). Marcas la zona, el resto de la pantalla se bloquea con un velo, y a medida que haces scroll la aplicación cose el contenido en una sola imagen larga con vista previa en vivo. La costura aguanta el ruido visual, como el suavizado de fuentes o el parpadeo del cursor, y descarta los fotogramas repetidos. Al final, la imagen se abre en un editor con scroll.
+- Todo se captura a la resolución nativa del monitor, sin pérdida, incluso con el escalado de Windows al 125 o 150 %.
+- El panel de la aplicación se aparta solo al capturar, así que nunca sale en tus fotos.
 
 ### Editor de anotaciones
 
-- **Formas** (8): rectángulo, rectángulo redondeado, elipse, triángulo, rombo, pentágono, hexágono y estrella.
-- **Líneas y flechas** con remate configurable en cada extremo por separado (nada, flecha, flecha rellena, punto, cuadrado, rombo) y cinco estilos de trazo (continuo, discontinuo, punteado, guion-punto, guion-punto-punto).
-- **Pincel** de trazo libre con grosor ajustable; con Shift el trazo sale recto.
-- **Texto** con todas las tipografías del sistema, tamaño, negrita, cursiva, subrayado, tachado, espaciado de letras, rotación, fondo (sólido o redondeado con su color), sombra y contorno. Un clic lo selecciona, doble clic reedita su contenido.
-- **Pincel de ocultar** para tapar correos, números o cualquier dato sensible: se pinta como un trazo y al soltar queda **pixelado o difuminado**, con intensidad y grosor a elección. También **opacidad** para cualquier elemento e **imágenes** pegadas con Ctrl + V.
-- **Borrador** para quitar anotaciones tocándolas, con grosor configurable.
-- **Selección múltiple**: Shift + clic suma o quita elementos, o los rodeas con un recuadro elástico, y los editas o borras a todos a la vez. La barra muestra solo las opciones comunes a lo seleccionado.
-- **Edición posterior**: cualquier elemento ya dibujado se selecciona, se mueve, se redimensiona por sus tiradores y se le cambia color, grosor o estilo desde la misma barra, en vivo. Al terminar de dibujar queda seleccionado, listo para acomodar.
-- **Modificadores estilo diseño**: Shift endereza líneas (pasos de 15°), hace formas proporcionadas, conserva la proporción al estirar y mueve en recto; Alt crece desde el centro; Alt + arrastre duplica el elemento.
-- **Atajos de letra** para cambiar de herramienta al vuelo (V selección, S formas, L línea, F flecha, B pincel, T texto, P ocultar, E borrador).
-- Deshacer (Ctrl + Z, movimientos incluidos), rehacer (Ctrl + Y), borrar elemento (Supr), restaurar todo, copiar (Ctrl + C) y guardar (Ctrl + S).
+- Ocho formas, del rectángulo y el rectángulo redondeado a la elipse, el triángulo, el rombo, el pentágono, el hexágono y la estrella.
+- Líneas y flechas con remate configurable en cada extremo por separado (nada, flecha, flecha rellena, punto, cuadrado o rombo) y cinco estilos de trazo (continuo, discontinuo, punteado, guion-punto y guion-punto-punto).
+- Pincel de trazo libre con grosor ajustable, y con Shift el trazo sale recto.
+- Texto con todas las tipografías del sistema, tamaño, negrita, cursiva, subrayado, tachado, espaciado de letras, rotación, fondo (sólido o redondeado con su color), sombra y contorno. Un clic lo selecciona y el doble clic reedita su contenido.
+- Pincel de ocultar para tapar correos, números o cualquier dato sensible. Se pinta como un trazo y, al soltar, queda pixelado o difuminado, con intensidad y grosor a tu elección. También hay opacidad para cualquier elemento e imágenes pegadas con Ctrl + V.
+- Borrador para quitar anotaciones al tocarlas, con grosor configurable.
+- Selección múltiple. Shift + clic suma o quita elementos, o los rodeas con un recuadro elástico, y los editas o borras a todos a la vez. La barra muestra solo las opciones comunes a lo que tengas seleccionado.
+- Edición posterior. Cualquier elemento ya dibujado se selecciona, se mueve, se redimensiona por sus tiradores y cambia de color, grosor o estilo desde la misma barra, en vivo. Al terminar de dibujarlo queda seleccionado, listo para acomodar.
+- Modificadores al estilo de un editor de diseño. Shift endereza líneas en pasos de 15°, hace formas proporcionadas, conserva la proporción al estirar y mueve en recto; Alt crece desde el centro; Alt + arrastre duplica el elemento.
+- Atajos de letra para cambiar de herramienta al vuelo (V selección, S formas, L línea, F flecha, B pincel, T texto, P ocultar, E borrador).
+- Deshacer (Ctrl + Z, con los movimientos incluidos), rehacer (Ctrl + Y), borrar elemento (Supr), restaurar todo, copiar (Ctrl + C) y guardar (Ctrl + S).
 
 ### Pizarra de presentación
 
-Pensada para clases y reuniones: un panel lateral flotante que pausa la pantalla cuando lo necesitas, la convierte en pizarra y la devuelve intacta al salir.
+Pensada para clases y reuniones. Es un panel lateral flotante que pausa la pantalla cuando lo necesitas, la convierte en pizarra y la devuelve intacta al salir.
 
-- **Panel lateral** con letras de atajo visibles (y configurables), arrastrable a cualquier borde y con minimizar a un chip flotante.
-- **Herramientas**: zoom con la rueda (Z), selección con recuadro elástico y edición por tiradores (V), mano (H), borrador (E), pincel (P), línea (I), flecha (F), formas (S, repetir rota entre las ocho), texto (T), resaltador (R) y puntero láser con estela configurable (L).
-- **Ventanita de propiedades** al costado: colores con recientes y código hex, grosor, estilos de trazo, extremos de flecha, opacidad y las opciones completas de texto; con algo seleccionado carga sus valores y lo edita en vivo, incluso varios a la vez.
-- **Imágenes insertadas** desde archivo o pegadas con Ctrl + V, movibles y estirables.
-- **Con el panel minimizado**, cada herramienta responde con Alt + su letra desde cualquier ventana.
-- **Deshacer y rehacer por acciones**: también reviven lo borrado y lo limpiado.
-- **Captura integrada**: Ctrl + C copia toda la pizarra con los dibujos, Ctrl + S la guarda, y Ctrl + A recorta solo un pedazo.
+- Panel lateral con las letras de atajo a la vista (y configurables), arrastrable a cualquier borde y con opción de minimizar a un chip flotante.
+- Las herramientas van del zoom con la rueda (Z) a la selección con recuadro elástico y edición por tiradores (V), la mano (H), el borrador (E), el pincel (P), la línea (I), la flecha (F), las formas (S, que rotan entre las ocho al repetir), el texto (T), el resaltador (R) y el puntero láser con estela configurable (L).
+- Al costado hay una ventanita de propiedades con los colores (recientes y código hex), grosor, estilos de trazo, extremos de flecha, opacidad y las opciones completas de texto. Con algo seleccionado carga sus valores y lo edita en vivo, incluso varios a la vez.
+- Imágenes insertadas desde archivo o pegadas con Ctrl + V, que luego mueves y estiras.
+- Con el panel minimizado, cada herramienta responde con Alt + su letra desde cualquier ventana.
+- Deshacer y rehacer por acciones, que también reviven lo borrado y lo limpiado.
+- Captura integrada. Ctrl + C copia toda la pizarra con los dibujos, Ctrl + S la guarda y Ctrl + A recorta solo un pedazo.
 
 ### Aplicación
 
-- **Atajos globales** funcionando en todo momento, incluso sobre juegos y navegadores a pantalla completa; todos personalizables. Solo la pizarra de presentación se calla ante un juego o app a pantalla completa (no ante un navegador).
-- **9 idiomas**: español (por defecto), inglés, portugués, francés, alemán, italiano, japonés, chino y ruso. El cambio se aplica al instante, sin reiniciar.
-- **14 formatos de guardado**: PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO y TGA, con calidad ajustable donde aplica y opción de abrir la carpeta al guardar.
-- **Tema claro y oscuro**, panel siempre adelante con pin, notificaciones y tooltips animados propios.
-- **Instancia única**: ejecutar el `.exe` dos veces no duplica la app, trae la que ya corre.
-- **Arranque con Windows** (que abre minimizado en la bandeja) y arranque directo a la bandeja, opcionales.
-- **Restablecer la configuración** desde Opciones, sin borrar ninguna captura ni cambiar tu carpeta de guardado.
-- **Comprobación de actualizaciones** contra las releases de este repositorio, sin servidores propios ni telemetría.
-- **Manual de usuario y acerca de integrados**: nada te redirige fuera de la aplicación.
+- Atajos globales activos en todo momento, incluso sobre juegos y navegadores a pantalla completa, y todos personalizables. Solo la pizarra de presentación se calla ante un juego o una app a pantalla completa, no ante un navegador.
+- Nueve idiomas, del español por defecto al inglés, el portugués, el francés, el alemán, el italiano, el japonés, el chino y el ruso. El cambio se aplica al instante, sin reiniciar.
+- Catorce formatos de guardado, entre ellos PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO y TGA, con calidad ajustable donde aplica y opción de abrir la carpeta al guardar.
+- Tema claro y oscuro, panel siempre adelante con pin, notificaciones y tooltips animados propios.
+- Instancia única. Ejecutar el `.exe` dos veces no duplica la app, trae la que ya corre.
+- Arranque con Windows, que abre minimizado en la bandeja, y arranque directo a la bandeja, los dos opcionales.
+- Restablecer la configuración desde Opciones, sin borrar ninguna captura ni cambiar tu carpeta de guardado.
+- Comprobación de actualizaciones contra las releases de este repositorio, sin servidores propios ni telemetría.
+- Manual de usuario y acerca de integrados, así que nada te saca de la aplicación.
 - La carpeta de guardado se recuerda entre sesiones; la última que uses será la próxima en abrirse.
 
 ## Atajos por defecto
@@ -99,7 +99,7 @@ Pensada para clases y reuniones: un panel lateral flotante que pausa la pantalla
 | Copiar / guardar en el editor | Ctrl + C / Ctrl + S |
 | Deshacer / borrar elemento | Ctrl + Z / Supr |
 
-Todos los atajos globales se cambian desde Opciones → Acceso rápido, presionando la combinación nueva.
+Todos los atajos globales se cambian desde Opciones → Acceso rápido, con solo pulsar la combinación nueva.
 
 ## Uso
 
@@ -137,7 +137,7 @@ El script instala PyInstaller si hace falta, convierte el logo al formato de íc
 | Integración Windows | [pywin32](https://github.com/mhammond/pywin32) + ctypes | Ventana activa, registro, exclusión de captura |
 | Empaquetado | [PyInstaller](https://pyinstaller.org/) | El ejecutable portable único |
 
-Un detalle técnico del que estamos orgullosos: el zoom en vivo funciona porque las ventanas de la aplicación se excluyen de la captura del sistema (`WDA_EXCLUDEFROMCAPTURE`), lo que permite fotografiar la pantalla 25 veces por segundo sin que la app se vea a sí misma.
+Un detalle técnico del que estamos orgullosos. El zoom en vivo funciona porque las ventanas de la aplicación se excluyen de la captura del sistema (`WDA_EXCLUDEFROMCAPTURE`), y eso permite fotografiar la pantalla 25 veces por segundo sin que la app se vea a sí misma.
 
 ## Estructura del proyecto
 

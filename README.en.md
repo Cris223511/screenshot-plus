@@ -5,7 +5,7 @@
 <h1 align="center">Screenshot Plus</h1>
 
 <p align="center">
-  Screenshot tool for Windows: capture, annotate, pixelate, stitch long pages while scrolling,
+  Screenshot tool for Windows. Capture, annotate, pixelate, stitch long pages while scrolling,
   and present with live zoom and a laser pointer. A single portable executable, free and open source.
 </p>
 
@@ -31,59 +31,59 @@ Taking a screenshot, marking it with an arrow and sending it should not require 
 
 | Version | File | Status |
 | ------- | ---- | ------ |
-| 1.2.1 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.1/ScreenshotPlus.exe) | Available |
+| 1.2.2 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.2/ScreenshotPlus.exe) | Available |
 
 Just download the `.exe` and run it. There is no installer and no extra steps; every version lives in the [releases](https://github.com/Cris223511/screenshot-plus/releases) section, and what changed in each one is in the [changelog](CHANGELOG.md).
 
-> **About the Windows SmartScreen warning.** The first time you run the file, Windows may show "Windows protected your PC" with an unknown publisher. That is the normal behavior for any open source executable without a code signing certificate (a paid service); it does not indicate any problem with the application, whose full source code you can review in this repository. To continue: **More info → Run anyway**. The warning fades away over time as more people run the same file.
+> **About the Windows SmartScreen warning.** The first time you run the file, Windows may show "Windows protected your PC" with an unknown publisher. That is the normal behavior for any open source executable without a code signing certificate, a paid service, and it does not indicate any problem with the application, whose full source code you can review in this repository. Click **More info** and then **Run anyway**. The warning fades away over time as more people run the same file.
 
 ## Features
 
 ### Capture
 
-- **Region** (Alt + A): the screen freezes, you drag over the area and on release the annotation editor opens. The selection itself can be moved and resized before you decide.
-- **Full screen** (Alt + S) and **active window** (Alt + W): the same editor, with the area preselected automatically; annotate if you want and choose between copying or saving.
-- **Scrolling capture** (Alt + D): you pick the area, the rest of the screen gets locked behind a veil, and as you scroll the app stitches the content into one long image with a live preview. The stitching tolerates visual noise (font smoothing, blinking cursors) and discards repeated frames. When you finish, the image opens in a scrollable editor.
-- Everything is captured at the **monitor's native resolution**, lossless, even with Windows scaling at 125 or 150 %.
-- The app's own panel steps aside when capturing: it never shows up in your shots.
+- Region (Alt + A). The screen freezes, you drag over the area and on release the annotation editor opens. The selection itself can be moved and resized before you decide.
+- Full screen (Alt + S) and active window (Alt + W). The same editor, with the area preselected automatically, so you annotate if you want and choose between copying or saving.
+- Scrolling capture (Alt + D). You pick the area, the rest of the screen gets locked behind a veil, and as you scroll the app stitches the content into one long image with a live preview. The stitching tolerates visual noise such as font smoothing or a blinking cursor, and it discards repeated frames. When you finish, the image opens in a scrollable editor.
+- Everything is captured at the monitor's native resolution, lossless, even with Windows scaling at 125 or 150 %.
+- The app's own panel steps aside when capturing, so it never shows up in your shots.
 
 ### Annotation editor
 
-- **Shapes** (8): rectangle, rounded rectangle, ellipse, triangle, diamond, pentagon, hexagon and star.
-- **Lines and arrows** with a configurable cap on each end independently (none, arrow, filled arrow, dot, square, diamond) and five stroke styles (solid, dashed, dotted, dash-dot, dash-dot-dot).
-- **Brush** for free drawing with adjustable thickness; hold Shift for a straight stroke.
-- **Text** with every system font, size, bold, italic, underline, strikethrough, letter spacing, rotation, background (solid or rounded with its own color), shadow and outline. One click selects it, double click reopens its content.
-- **Hide brush** to cover sensitive data: paint a stroke and on release it becomes **pixelated or blurred**, with adjustable intensity and thickness. Plus **opacity** for any element and **images** pasted with Ctrl + V.
-- **Eraser** to remove annotations by touching them, with adjustable thickness.
-- **Multi-selection**: Shift + click adds or removes elements, or wrap them with a rubber band, then edit or delete them all at once. The toolbar only shows the options common to the selection.
-- **Everything stays editable**: any drawn element can be selected, moved, resized by its handles, and restyled from the same toolbar, live. It stays selected right after drawing, ready to place.
-- **Design-style modifiers**: Shift straightens lines (15° steps), makes shapes proportional, keeps the ratio when resizing and moves in a straight line; Alt grows from the center; Alt + drag duplicates the element.
-- **Letter shortcuts** to switch tools on the fly (V select, S shapes, L line, F arrow, B brush, T text, P hide, E eraser).
+- Eight shapes, from the rectangle and rounded rectangle to the ellipse, triangle, diamond, pentagon, hexagon and star.
+- Lines and arrows with a configurable cap on each end independently (none, arrow, filled arrow, dot, square or diamond) and five stroke styles (solid, dashed, dotted, dash-dot and dash-dot-dot).
+- Brush for free drawing with adjustable thickness, and Shift gives you a straight stroke.
+- Text with every system font, size, bold, italic, underline, strikethrough, letter spacing, rotation, background (solid or rounded with its own color), shadow and outline. One click selects it and a double click reopens its content.
+- Hide brush to cover sensitive data. Paint a stroke and, on release, it becomes pixelated or blurred, with adjustable intensity and thickness. There is also opacity for any element and images pasted with Ctrl + V.
+- Eraser to remove annotations by touching them, with adjustable thickness.
+- Multi-selection. Shift + click adds or removes elements, or you wrap them with a rubber band, then edit or delete them all at once. The toolbar only shows the options common to the selection.
+- Everything stays editable. Any drawn element can be selected, moved, resized by its handles, and restyled from the same toolbar, live. It stays selected right after you draw it, ready to place.
+- Design-style modifiers. Shift straightens lines in 15° steps, makes shapes proportional, keeps the ratio when resizing and moves in a straight line; Alt grows from the center; Alt + drag duplicates the element.
+- Letter shortcuts to switch tools on the fly (V select, S shapes, L line, F arrow, B brush, T text, P hide, E eraser).
 - Undo (Ctrl + Z, moves included), redo (Ctrl + Y), delete element (Del), reset all, copy (Ctrl + C) and save (Ctrl + S).
 
 ### Presentation whiteboard
 
-Built for classes and meetings: a floating side panel that pauses the screen when you need it, turns it into a whiteboard, and hands it back untouched when you leave.
+Built for classes and meetings. It is a floating side panel that pauses the screen when you need it, turns it into a whiteboard, and hands it back untouched when you leave.
 
-- **Side panel** with visible (and configurable) shortcut letters, draggable to any edge and collapsible into a floating chip.
-- **Tools**: wheel zoom (Z), selection with rubber band and handle editing (V), hand (H), eraser (E), brush (P), line (I), arrow (F), shapes (S, repeat cycles through the eight), text (T), highlighter (R) and laser pointer with configurable trail (L).
-- **Properties popup** beside the panel: colors with recents and hex code, thickness, stroke styles, arrow endpoints, opacity and the full text options; with something selected it loads its values and edits it live, even several at once.
-- **Inserted images** from file or pasted with Ctrl + V, movable and resizable.
-- **With the panel minimized**, each tool responds to Alt + its letter from any window.
-- **Action-based undo and redo**: they also bring back what was erased or cleared.
-- **Built-in capture**: Ctrl + C copies the whole board with drawings, Ctrl + S saves it, and Ctrl + A crops just a piece.
+- Side panel with visible (and configurable) shortcut letters, draggable to any edge and collapsible into a floating chip.
+- The tools run from wheel zoom (Z) to selection with a rubber band and handle editing (V), hand (H), eraser (E), brush (P), line (I), arrow (F), shapes (S, which cycle through the eight on repeat), text (T), highlighter (R) and laser pointer with a configurable trail (L).
+- Beside the panel there is a properties popup with colors (recents and hex code), thickness, stroke styles, arrow endpoints, opacity and the full text options. With something selected it loads its values and edits it live, even several at once.
+- Inserted images from file or pasted with Ctrl + V, which you then move and resize.
+- With the panel minimized, each tool responds to Alt + its letter from any window.
+- Action-based undo and redo, which also bring back what was erased or cleared.
+- Built-in capture. Ctrl + C copies the whole board with drawings, Ctrl + S saves it, and Ctrl + A crops just a piece.
 
 ### Application
 
-- **Global hotkeys** that work at all times, even over fullscreen games and browsers, all customizable. Only the presentation whiteboard mutes itself for a fullscreen game or app (not for a browser).
-- **9 languages**: Spanish (default), English, Portuguese, French, German, Italian, Japanese, Chinese and Russian. Switching applies instantly, no restart.
-- **14 save formats**: PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO and TGA, with adjustable quality where it applies and an option to open the folder after saving.
-- **Light and dark themes**, always-on-top pin, custom animated notifications and tooltips.
-- **Single instance**: running the `.exe` twice does not duplicate the app, it brings up the one already running.
-- **Start with Windows** (opening minimized to the tray) and start straight in the tray, both optional.
-- **Reset settings** from Options, without deleting any screenshot or changing your save folder.
-- **Update checking** against this repository's releases, with no servers of its own and no telemetry.
-- **Built-in user manual and about window**: nothing redirects you outside the application.
+- Global hotkeys that work at all times, even over fullscreen games and browsers, all customizable. Only the presentation whiteboard mutes itself for a fullscreen game or app, not for a browser.
+- Nine languages, from Spanish by default to English, Portuguese, French, German, Italian, Japanese, Chinese and Russian. Switching applies instantly, no restart.
+- Fourteen save formats, among them PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, BMP, TIFF, TIF, HEIC, HEIF, ICO and TGA, with adjustable quality where it applies and an option to open the folder after saving.
+- Light and dark themes, always-on-top pin, custom animated notifications and tooltips.
+- Single instance. Running the `.exe` twice does not duplicate the app, it brings up the one already running.
+- Start with Windows, which opens minimized to the tray, and start straight in the tray, both optional.
+- Reset settings from Options, without deleting any screenshot or changing your save folder.
+- Update checking against this repository's releases, with no servers of its own and no telemetry.
+- Built-in user manual and about window, so nothing takes you outside the application.
 - The save folder is remembered between sessions; the last one you use is the next one to open.
 
 ## Default hotkeys
@@ -137,7 +137,7 @@ The script installs PyInstaller if needed, converts the logo to the Windows icon
 | Windows integration | [pywin32](https://github.com/mhammond/pywin32) + ctypes | Active window, registry, capture exclusion |
 | Packaging | [PyInstaller](https://pyinstaller.org/) | The single portable executable |
 
-One technical detail we are proud of: live zoom works because the app's windows are excluded from system capture (`WDA_EXCLUDEFROMCAPTURE`), which allows photographing the screen 25 times per second without the app seeing itself.
+One technical detail we are proud of. Live zoom works because the app's windows are excluded from system capture (`WDA_EXCLUDEFROMCAPTURE`), and that lets it photograph the screen 25 times per second without the app seeing itself.
 
 ## Project structure
 
