@@ -51,8 +51,11 @@ class ScreenshotApp(QObject):
         self._conectar_bandeja()
         self._conectar_atajos()
 
-        # si el registro de arranque automático sigue apuntando a una versión
-        # vieja del comando, se refresca para que lleve la bandera de bandeja
+        # se quita la marca de "descargado de internet" del propio exe para que
+        # SmartScreen no frene el arranque automático, y si el usuario tenía el
+        # inicio con windows puesto se refresca (registro + acceso directo) por
+        # si el ejecutable cambió de carpeta o de versión
+        autostart.clear_web_mark()
         if settings.get("autostart", False):
             autostart.enable()
 
@@ -272,6 +275,10 @@ class ScreenshotApp(QObject):
         todos los formatos disponibles van en el desplegable del diálogo,
         con el formato preferido de opciones como primera opción.
         """
+        # quién pidió guardar: la captura de región se cierra por completo al
+        # terminar de guardar; el editor de captura larga y la pizarra siguen
+        # abiertos para poder seguir trabajando
+        origen = self.sender()
         disponibles = storage.available_formats()
         preferido = settings.get("image_format", "png")
         orden = ([preferido] if preferido in disponibles else []) + \
@@ -288,6 +295,10 @@ class ScreenshotApp(QObject):
             if settings.get("open_folder_after_save", False):
                 import subprocess
                 subprocess.Popen(["explorer", "/select,", os.path.normpath(ruta)])
+            # guardada la captura de región, se cierra todo el overlay y la app
+            # vuelve a su sitio (bandeja o panel según cómo estaba)
+            if isinstance(origen, SelectionOverlay):
+                origen.close()
         else:
             notify(t("notify.save_error"), "close")
 
