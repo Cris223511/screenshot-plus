@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Historial de cambios
+    url: https://github.com/Cris223511/screenshot-plus/blob/main/CHANGELOG.md
+    about: Antes de abrir un issue, revisa si lo tuyo ya se corrigió o se añadió en una versión reciente.

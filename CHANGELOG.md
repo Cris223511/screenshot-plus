@@ -4,6 +4,16 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/). El primer número marca los cambios mayores, el segundo las funciones nuevas y el tercero las correcciones.
 
+## 1.2.3 (2026-07-16)
+
+Correcciones sobre la captura con desplazamiento, que arrastraba varios fallos serios, y un cierre más corto para lo capturado.
+
+- El velo de la captura con desplazamiento dejaba pasar el ratón por completo, así que un clic podía colarse en la ventana de atrás y sacarte de la captura. Ahora un filtro bloquea los clics mientras la captura está activa, salvo los que caen sobre el panel de control, y solo Esc cancela.
+- El scroll lento podía disparar el uso del procesador y dejar el equipo casi bloqueado. Para frenar la rueda se reinyectaba una versión más corta, y cuando el sistema no reconocía esa inyección propia el filtro la tomaba como un giro nuevo y la reinyectaba sin fin. Ahora cada rueda inyectada queda contabilizada por la propia aplicación, así se reconoce al volver por el hook y nunca puede realimentarse.
+- La unión de los fotogramas producía imágenes de una altura imposible y con partes repetidas. El desplazamiento se medía con el signo invertido, de modo que al scrollear hacia abajo se pegaba como si fuera hacia arriba y el contenido se duplicaba sin parar. Se corrigió el signo, se añadieron límites que descartan los saltos sin solape y un tope de altura, y la medición del calce quedó más liviana para no cargar el equipo en cada captura.
+- La vista previa muestra ahora el extremo recién cosido, abajo cuando se scrollea hacia abajo y arriba cuando es hacia arriba.
+- El cierre de lo capturado es más corto. Durante la captura, Ctrl + C copia y termina, Ctrl + S guarda y termina, y Enter abre el editor para anotar antes de decidir. En ese editor, copiar o guardar también cierra y da el flujo por concluido.
+
 ## 1.2.2 (2026-07-16)
 
 Esta versión corrige cinco errores que afectaban al funcionamiento habitual de la aplicación. Se resuelven problemas en el arranque junto a Windows, en el cierre de la captura de región al guardar, en el comportamiento de la tecla Escape, en la exactitud de los atajos globales y en la captura con desplazamiento.
