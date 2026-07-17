@@ -4,6 +4,16 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/). El primer número marca los cambios mayores, el segundo las funciones nuevas y el tercero las correcciones.
 
+## 1.2.7 (2026-07-17)
+
+Refuerza la instalación de actualizaciones para que no pueda dejar un ejecutable a medias, y equipara por completo el editor de la captura con desplazamiento con el de la captura de región, además de sumarle tema, cursores y una herramienta de mano.
+
+- Se corrige un fallo de la instalación automática que podía dejar la aplicación sin arrancar. Si la descarga del ejecutable nuevo se cortaba a medias, se instalaba igual y al abrir fallaba con un error de carga de librerías. Ahora, antes de reemplazar nada, se comprueba que la descarga esté completa (que su tamaño coincida con el anunciado) y que sea un ejecutable válido; si algo no cuadra, no se instala. Además, el reemplazo espera unos segundos y reintenta si hace falta, para que la versión nueva arranque bien la primera vez.
+- El editor de la captura con desplazamiento pasa a tener la misma lógica y las mismas opciones que el editor de la captura de región. Suma la selección múltiple (Shift y clic para sumar o quitar, y un recuadro elástico que toma todo lo que abarca) y la edición en conjunto, de modo que color, grosor, trazo, remates, opacidad y las opciones de texto se aplican a la vez a todo lo seleccionado. El resto de herramientas ya era común.
+- El editor respeta el tema. Antes la ventana no cambiaba con el modo oscuro y sus botones quedaban apagados; ahora toda la ventana adopta el tema claro u oscuro y los controles se ven con claridad.
+- Se añade el zoom. La imagen se puede acercar y alejar con sus botones o con Ctrl y la rueda, que acerca hacia el punto bajo el cursor. Y una herramienta de mano (tecla H o el botón central del ratón) permite desplazar la vista cuando se está acercado.
+- Los cursores del recorte guían mejor. Al pasar por los tiradores aparece la flecha de redimensión que corresponde a cada lado, y dentro de la selección la mano para moverla, igual que en la captura de región.
+
 ## 1.2.6 (2026-07-17)
 
 Mejoras en el editor de la captura con desplazamiento: zoom, recorte y una barra de herramientas que ya no se deforma.
