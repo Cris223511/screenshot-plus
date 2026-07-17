@@ -321,6 +321,15 @@ class _Toolbar(QWidget):
         self.tool_changed.emit(nombre)
         self.configure(nombre)
 
+    def clear_tools(self):
+        """desmarca todos los botones de herramienta, sin emitir nada.
+
+        lo usa el editor de la captura larga cuando activa la mano o el
+        recorte, que no son botones de esta barra, para que ninguna
+        herramienta quede marcada a la vez."""
+        for b in self._botones.values():
+            b.setChecked(False)
+
     def configure(self, tipo: str, item: an.Item | None = None):
         """decide qué controles se ven y con qué valores.
 

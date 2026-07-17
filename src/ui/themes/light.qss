@@ -13,6 +13,12 @@ QWidget#panelPrincipal, QWidget#barraFlotante, QWidget#ventanaScroll {
     border-radius: 12px;
 }
 
+/* el editor de la captura larga es una ventana normal (con su barra de
+   título del sistema), así que va con fondo plano, sin bordes redondeados */
+QWidget#ventanaEditor {
+    background: #eef1f6;
+}
+
 QDialog, QMessageBox {
     background: #ffffff;
 }
