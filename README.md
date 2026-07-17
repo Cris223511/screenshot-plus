@@ -32,7 +32,7 @@ Tomar una captura, marcarla con una flecha y enviarla no debería exigir tres pr
 
 | Versión | Archivo | Estado |
 | ------- | ------- | ------ |
-| 1.2.4 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.4/ScreenshotPlus.exe) | Disponible |
+| 1.2.5 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.5/ScreenshotPlus.exe) | Disponible |
 
 Solo hay que descargar el `.exe` y ejecutarlo. No existe instalador ni pasos adicionales. Todas las versiones están en la sección de [releases](https://github.com/Cris223511/screenshot-plus/releases) y los cambios de cada una se detallan en el [historial de cambios](CHANGELOG.md).
 
@@ -84,7 +84,8 @@ Pensada para clases y reuniones. Es un panel lateral que permanece flotante sobr
 - **Instancia única:** ejecutar el `.exe` una segunda vez no abre otra copia, sino que trae al frente la que ya está en marcha.
 - **Arranque con Windows:** abre la aplicación minimizada en la bandeja del sistema. Existe además un arranque directo a la bandeja. Ambas opciones se activan a voluntad.
 - **Restablecer la configuración:** desde Opciones, sin borrar ninguna captura ni cambiar la carpeta de guardado.
-- **Comprobación de actualizaciones:** contra las releases de este repositorio, sin servidores propios ni recopilación de datos.
+- **Actualizaciones desde la propia aplicación:** comprueba si hay una versión nueva en las releases de este repositorio y, cuando la hay, la descarga e instala sin salir de la aplicación, que se reinicia ya actualizada. Sin servidores propios ni recopilación de datos.
+- **Historial de versiones integrado:** una ventana lista todas las versiones publicadas, con su fecha y sus notas, obtenidas de la API pública de GitHub.
 - **Manual e información integrados:** manual de usuario y ventana de información dentro de la propia aplicación. Ningún enlace te lleva fuera, salvo el que abre el repositorio.
 - **Carpeta recordada:** la carpeta de guardado se conserva entre sesiones. La última que uses será la que se ofrezca la próxima vez.
 
@@ -167,7 +168,7 @@ screenshot-plus/
 
 - **Preferencias:** se guardan en `%APPDATA%\ScreenshotPlus\settings.json`.
 - **Capturas:** van por defecto a una subcarpeta `Screenshot Plus` dentro de tu carpeta de Imágenes real, que se consulta a Windows y funciona en cualquier idioma del sistema.
-- **Privacidad:** la aplicación no recopila ningún dato ni se conecta a internet, salvo cuando pides comprobar si hay actualizaciones, momento en el que hace una única consulta a la API pública de GitHub.
+- **Privacidad:** la aplicación no recopila ningún dato ni se conecta a internet, salvo cuando pides comprobar actualizaciones, instalar una versión nueva o ver el historial de versiones, casos en los que consulta la API pública de GitHub.
 
 ## Contribuir
 

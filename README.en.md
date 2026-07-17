@@ -31,7 +31,7 @@ Taking a screenshot, marking it with an arrow and sending it should not require 
 
 | Version | File | Status |
 | ------- | ---- | ------ |
-| 1.2.4 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.4/ScreenshotPlus.exe) | Available |
+| 1.2.5 | [ScreenshotPlus.exe](https://github.com/Cris223511/screenshot-plus/releases/download/v1.2.5/ScreenshotPlus.exe) | Available |
 
 Just download the `.exe` and run it. There is no installer and no extra steps. Every version is in the [releases](https://github.com/Cris223511/screenshot-plus/releases) section, and what changed in each one is detailed in the [changelog](CHANGELOG.md).
 
@@ -83,7 +83,8 @@ Built for classes and meetings. It is a side panel that stays floating over the 
 - **Single instance:** running the `.exe` a second time does not open another copy, it brings the running one to the front.
 - **Start with Windows:** opens the app minimized to the system tray. There is also a start-straight-in-the-tray option. Both are optional.
 - **Reset settings:** from Options, without deleting any screenshot or changing the save folder.
-- **Update check:** against this repository's releases, with no servers of its own and no data collection.
+- **Updates from within the app:** it checks this repository's releases for a newer version and, when there is one, downloads and installs it without leaving the application, which restarts already updated. No servers of its own and no data collection.
+- **Built-in version history:** a window lists every published version, with its date and notes, fetched from GitHub's public API.
 - **Built-in user manual and info window:** no link takes you outside the application, except the one that opens the repository.
 - **Remembered folder:** the save folder is kept between sessions. The last one you use is the one offered next time.
 
@@ -166,7 +167,7 @@ screenshot-plus/
 
 - **Preferences:** stored in `%APPDATA%\ScreenshotPlus\settings.json`.
 - **Screenshots:** go by default to a `Screenshot Plus` subfolder inside your real Pictures folder, which is asked to Windows and works in any system language.
-- **Privacy:** the application collects no data and never connects to the internet, except when you ask it to check for updates, at which point it makes a single request to GitHub's public API.
+- **Privacy:** the application collects no data and never connects to the internet, except when you ask it to check for updates, install a new version or view the version history, in which cases it queries GitHub's public API.
 
 ## Contributing
 

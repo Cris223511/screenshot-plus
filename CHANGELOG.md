@@ -4,6 +4,14 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/). El primer número marca los cambios mayores, el segundo las funciones nuevas y el tercero las correcciones.
 
+## 1.2.5 (2026-07-17)
+
+Añade la instalación de actualizaciones desde la propia aplicación, una ventana con el historial de versiones y el número de versión en el ícono de la bandeja.
+
+- La comprobación de actualizaciones ahora puede instalar la versión nueva sin salir de la aplicación. Cuando hay una versión más reciente, se ofrece descargarla e instalarla: la aplicación baja el ejecutable nuevo con una barra de progreso, se cierra y se vuelve a abrir ya actualizada, mediante un pequeño script que espera al cierre y reemplaza el archivo. Se mantiene, de todos modos, la opción de abrir la página de descarga. La instalación automática solo está disponible en el ejecutable; al ejecutar desde el código fuente se abre la página, como antes.
+- Se añade la ventana Ver versiones, que consulta las publicaciones del repositorio en GitHub y muestra el historial completo con la fecha y las notas de cada versión, con el mismo diseño que el manual. Es solo para leer; la información se obtiene de la API pública, sin nada fijado en el código.
+- El ícono de la bandeja del sistema muestra ahora el número de versión instalada al pasar el cursor por encima.
+
 ## 1.2.4 (2026-07-16)
 
 Rehace por dentro la captura con desplazamiento, que en la versión anterior seguía sin funcionar de forma fiable, y corrige los botones de la ventana de control.
