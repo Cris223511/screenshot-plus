@@ -218,17 +218,28 @@ class ScreenshotApp(QObject):
 
     def _abrir_captura_scroll(self):
         self._overlay = scroll_capture_window.pick_region_and_start(
-            self._terminar_scroll, self._restaurar_panel)
+            self._terminar_scroll, self._restaurar_panel,
+            self._copiar_scroll, self._guardar_scroll)
+
+    def _copiar_scroll(self, imagen):
+        # ctrl+c durante la captura: se copia lo unido y el flujo termina ahí
+        self._restaurar_panel()
+        self._copiar_imagen(imagen)
+
+    def _guardar_scroll(self, imagen):
+        # ctrl+s durante la captura: se guarda directo, sin pasar por el editor
+        self._restaurar_panel()
+        self._guardar_imagen(imagen)
 
     def _terminar_scroll(self, imagen):
-        """la captura larga pasa al editor, igual que una captura normal.
-
-        ahí el usuario anota, mueve, redimensiona y decide si copia o
-        guarda; el editor avisa por señales y los flujos son los mismos.
+        """con enter, la captura larga pasa al editor para anotar antes de
+        decidir. ahí, copiar o guardar cierra el editor y da el flujo por
+        terminado, para que sea rápido.
         """
         self._restaurar_panel()
         editor = EditorWindow(imagen)
         editor.copied.connect(self._copiar_imagen)
+        editor.copied.connect(lambda *_: editor.close())
         editor.save_requested.connect(self._guardar_imagen)
         editor.closed.connect(lambda: setattr(self, "_editor", None))
         self._editor = editor
@@ -275,9 +286,9 @@ class ScreenshotApp(QObject):
         todos los formatos disponibles van en el desplegable del diálogo,
         con el formato preferido de opciones como primera opción.
         """
-        # quién pidió guardar: la captura de región se cierra por completo al
-        # terminar de guardar; el editor de captura larga y la pizarra siguen
-        # abiertos para poder seguir trabajando
+        # quién pidió guardar: tanto la captura de región como el editor de la
+        # captura larga se cierran por completo al terminar de guardar, para
+        # que el flujo sea corto; la pizarra de presentación sí sigue abierta
         origen = self.sender()
         disponibles = storage.available_formats()
         preferido = settings.get("image_format", "png")
@@ -295,9 +306,9 @@ class ScreenshotApp(QObject):
             if settings.get("open_folder_after_save", False):
                 import subprocess
                 subprocess.Popen(["explorer", "/select,", os.path.normpath(ruta)])
-            # guardada la captura de región, se cierra todo el overlay y la app
-            # vuelve a su sitio (bandeja o panel según cómo estaba)
-            if isinstance(origen, SelectionOverlay):
+            # guardada la captura, se cierra el overlay o el editor de origen y
+            # la app vuelve a su sitio (bandeja o panel según cómo estaba)
+            if isinstance(origen, (SelectionOverlay, EditorWindow)):
                 origen.close()
         else:
             notify(t("notify.save_error"), "close")

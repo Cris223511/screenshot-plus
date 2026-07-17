@@ -1,11 +1,18 @@
 """interfaz de la captura con desplazamiento.
 
-primero un selector marca la zona; después un velo con un hueco real deja
-pasar el mouse y el scroll solo dentro de esa zona. cada giro de rueda
-captura la franja visible y el cosedor del núcleo la une a la imagen larga,
-que al finalizar pasa al editor. enter y esc se escuchan de forma global
-porque el teclado lo tiene la página que se scrollea, no esta ventana.
+primero un selector marca la zona. después un velo oscurece el resto de la
+pantalla y deja la zona limpia, pero el ratón no interactúa libre con lo de
+abajo: un hook global bloquea los clics (para no meterse por error en la
+ventana de atrás) y solo deja pasar el scroll, que además se reinyecta más
+suave para que el contenido avance despacio y el cosido salga limpio. cada
+giro de rueda captura la franja visible y el cosedor la une a la imagen larga.
+
+las teclas se escuchan de forma global porque el foco lo tiene la página que
+se scrollea, no esta ventana: esc cancela, enter abre el editor con lo
+capturado, ctrl+c copia y cierra, y ctrl+s guarda y cierra.
 """
+
+import ctypes
 
 from pynput import keyboard, mouse
 from PySide6.QtCore import QObject, QRect, QRectF, QTimer, Qt, Signal
@@ -17,6 +24,25 @@ from src.core import capture
 from src.core.scrolling_capture import ScrollStitcher
 from src.i18n.translator import t
 from src.ui.themes.theme_manager import theme
+
+# mensajes de ratón del hook de bajo nivel de windows
+_WM_MOUSEWHEEL = 0x020A
+_WM_MOUSEHWHEEL = 0x020E
+_BOTONES_MOUSE = {0x0201, 0x0202, 0x0204, 0x0205, 0x0207, 0x0208, 0x020B, 0x020C}
+# marca que windows pone a los eventos que inyecta un programa; sirve para
+# reconocer nuestra propia rueda suave y dejarla pasar sin volver a frenarla
+_LLMHF_INJECTED = 0x00000001
+_MOUSEEVENTF_WHEEL = 0x0800
+# proporción de la rueda original que se reinyecta; más bajo, más lento
+_FACTOR_SUAVE = 0.34
+
+
+def _inyectar_rueda(delta: int) -> None:
+    """manda un giro de rueda a la ventana bajo el cursor, más suave."""
+    try:
+        ctypes.windll.user32.mouse_event(_MOUSEEVENTF_WHEEL, 0, 0, int(delta), 0)
+    except Exception:
+        pass
 
 
 class _RegionPicker(QWidget):
@@ -94,10 +120,10 @@ class _DimOverlay(QWidget):
     """velo que oscurece la pantalla alrededor de la zona a capturar.
 
     la ventana es transparente al ratón (WindowTransparentForInput), así que
-    el scroll y los clics atraviesan hacia la página de abajo en cualquier
-    punto, sin depender de una máscara recortada (que se descuadraba con el
-    escalado de windows y hacía capturar una zona distinta a la elegida). la
-    zona queda limpia y solo se oscurece lo de alrededor, como guía visual.
+    el scroll reinyectado atraviesa hacia la página de abajo sin depender de
+    una máscara recortada (que se descuadraba con el escalado de windows). la
+    zona queda limpia y solo se oscurece lo de alrededor, como guía visual. de
+    los clics se encarga el hook de la ventana de control, no este velo.
     """
 
     def __init__(self, zona_logica: QRect):
@@ -129,12 +155,16 @@ class _InputBridge(QObject):
     scrolled = Signal()
     finish_key = Signal()
     cancel_key = Signal()
+    copy_key = Signal()
+    save_key = Signal()
 
 
 class ScrollCaptureWindow(QWidget):
     """ventanita de control con la vista previa de la imagen larga."""
 
     finished = Signal(QImage)
+    copy_requested = Signal(QImage)
+    save_requested = Signal(QImage)
     cancelled = Signal()
 
     _ANCHO_PREVIA = 240
@@ -149,6 +179,14 @@ class ScrollCaptureWindow(QWidget):
         self._region = region_fisica
         self._stitcher = ScrollStitcher()
         self._terminada = False
+        self._ctrl = False
+        # cuenta de ruedas suaves que hemos inyectado y aún no han vuelto por
+        # el hook; sirve para reconocer las nuestras sin depender de la marca
+        # de windows y así cerrar cualquier posibilidad de bucle
+        self._rueda_propia = 0
+        # rectángulo físico del panel de control; el hook deja pasar los clics
+        # que caen dentro para que sus botones sigan respondiendo
+        self._rect_control = None
 
         # aunque la ventana quedara dentro de la zona elegida, la exclusión
         # evita que salga en los fotogramas; es opaca, así que windows la
@@ -157,6 +195,7 @@ class ScrollCaptureWindow(QWidget):
 
         self._velo = _DimOverlay(region_logica)
         self._velo.show()
+        capture.exclude_from_capture(self._velo)
 
         columna = QVBoxLayout(self)
         columna.setContentsMargins(14, 12, 14, 12)
@@ -197,13 +236,15 @@ class ScrollCaptureWindow(QWidget):
         self._acomodar(region_logica)
 
         # la rueda y las teclas de cierre se escuchan globales: el foco lo
-        # tiene la página que el usuario scrollea, no esta ventana. el
-        # puente trae cada aviso al hilo de qt, y el temporizador junta
-        # ráfagas de scroll en una sola captura cuando la pantalla asienta
+        # tiene la página que el usuario scrollea, no esta ventana. el puente
+        # trae cada aviso al hilo de qt, y el temporizador junta ráfagas de
+        # scroll en una sola captura cuando la pantalla asienta
         self._puente = _InputBridge()
         self._puente.scrolled.connect(self._programar_captura)
         self._puente.finish_key.connect(self._finalizar)
         self._puente.cancel_key.connect(self._cancelar)
+        self._puente.copy_key.connect(self._copiar)
+        self._puente.save_key.connect(self._guardar)
 
         # la espera junta la ráfaga de scroll en una captura cuando la pantalla
         # asienta; corta, para tomar incrementos chicos cuando se scrollea
@@ -213,21 +254,101 @@ class ScrollCaptureWindow(QWidget):
         self._espera.setInterval(140)
         self._espera.timeout.connect(self._capturar_tramo)
 
-        self._raton = mouse.Listener(on_scroll=lambda *_: self._puente.scrolled.emit())
+        # el filtro del ratón bloquea clics y frena el scroll; el del teclado
+        # atiende esc, enter, ctrl+c y ctrl+s
+        self._raton = mouse.Listener(win32_event_filter=self._filtro_raton)
         self._raton.daemon = True
         self._raton.start()
-        self._teclado = keyboard.Listener(on_press=self._tecla_global)
+        self._teclado = keyboard.Listener(on_press=self._tecla_press,
+                                          on_release=self._tecla_release)
         self._teclado.daemon = True
         self._teclado.start()
 
         QTimer.singleShot(350, self._capturar_tramo)
 
-    def _tecla_global(self, tecla):
-        # esta función corre en el hilo de pynput; solo emite señales
+    def showEvent(self, e):
+        super().showEvent(e)
+        # el panel ya está en su sitio; se guarda su rectángulo físico para
+        # que el hook sepa qué clics dejar pasar (los de sus botones)
+        try:
+            import win32gui
+            self._rect_control = win32gui.GetWindowRect(int(self.winId()))
+        except Exception:
+            self._rect_control = None
+
+    # ------------------------------------------------------------------ #
+    # entrada global (corre en los hilos de pynput; solo emite señales)
+
+    def _sobre_control(self, x: int, y: int) -> bool:
+        r = self._rect_control
+        if not r:
+            return False
+        return r[0] <= x < r[2] and r[1] <= y < r[3]
+
+    def _filtro_raton(self, msg, data):
+        # ojo: suppress_event() bloquea el evento lanzando una excepción que
+        # pynput atrapa arriba, así que nunca debe quedar dentro de un try que
+        # la capture; por eso las lecturas van en su propio try y la supresión
+        # se llama fuera
+        if msg == _WM_MOUSEWHEEL:
+            # si tenemos una rueda suave pendiente, esta es la nuestra que
+            # vuelve por el hook: se deja pasar una vez y se descuenta. este
+            # contador es la salvaguarda contra el bucle, no depende de windows
+            if self._rueda_propia > 0:
+                self._rueda_propia -= 1
+                return
+            # cualquier otra inyección ajena también se deja pasar sin tocar
+            if data.flags & _LLMHF_INJECTED:
+                return
+            # rueda real del usuario: se reemplaza por una más corta (más
+            # lenta) y solo se inyecta una, con lo que nunca hay más de una en
+            # vuelo y no puede realimentarse
+            try:
+                delta = ctypes.c_short((data.mouseData >> 16) & 0xFFFF).value
+                suave = int(delta * _FACTOR_SUAVE) or (1 if delta > 0 else -1)
+            except Exception:
+                suave = 0
+            if suave:
+                self._rueda_propia += 1
+                _inyectar_rueda(suave)
+                self._puente.scrolled.emit()
+            self._raton.suppress_event()
+        elif msg == _WM_MOUSEHWHEEL:
+            # el scroll horizontal no aporta a la imagen larga; se bloquea
+            self._raton.suppress_event()
+        elif msg in _BOTONES_MOUSE:
+            # los clics se bloquean para no colarse en la ventana de atrás,
+            # salvo los que caen sobre el propio panel de control
+            sobre = False
+            try:
+                sobre = self._sobre_control(data.pt.x, data.pt.y)
+            except Exception:
+                sobre = False
+            if not sobre:
+                self._raton.suppress_event()
+
+    def _tecla_press(self, tecla):
+        if tecla in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+            self._ctrl = True
+            return
         if tecla == keyboard.Key.esc:
             self._puente.cancel_key.emit()
-        elif tecla == keyboard.Key.enter:
+            return
+        if tecla == keyboard.Key.enter:
             self._puente.finish_key.emit()
+            return
+        vk = getattr(tecla, "vk", None)
+        if self._ctrl and vk == 0x43:      # ctrl + c
+            self._puente.copy_key.emit()
+        elif self._ctrl and vk == 0x53:    # ctrl + s
+            self._puente.save_key.emit()
+
+    def _tecla_release(self, tecla):
+        if tecla in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+            self._ctrl = False
+
+    # ------------------------------------------------------------------ #
+    # captura y vista previa
 
     def _acomodar(self, zona: QRect):
         """la ventana busca un lugar fuera de la zona elegida.
@@ -258,14 +379,28 @@ class ScrollCaptureWindow(QWidget):
         if imagen is None:
             return
         pixmap = QPixmap.fromImage(imagen).scaledToWidth(self._ANCHO_PREVIA, Qt.SmoothTransformation)
-        # con la imagen ya más larga que la ventana, la vista muestra el
-        # final, que es lo recién capturado
+        # la vista muestra el extremo recién cosido: abajo si se scrolleó hacia
+        # abajo, arriba si fue hacia arriba
         maximo = 320
         if pixmap.height() > maximo:
-            pixmap = pixmap.copy(0, pixmap.height() - maximo, pixmap.width(), maximo)
+            if self._stitcher.last_side == "arriba":
+                pixmap = pixmap.copy(0, 0, pixmap.width(), maximo)
+            else:
+                pixmap = pixmap.copy(0, pixmap.height() - maximo, pixmap.width(), maximo)
         self._previa.setFixedHeight(min(pixmap.height(), maximo))
         self._previa.setPixmap(pixmap)
         self._altura.setText(f'{t("scroll.height")}: {self._stitcher.height} px')
+
+    # ------------------------------------------------------------------ #
+    # cierre por cada camino
+
+    def _imagen_capturada(self) -> QImage | None:
+        """recoge una última toma, detiene todo y devuelve la imagen o None."""
+        self._espera.stop()
+        self._capturar_tramo()
+        self._detener()
+        imagen = self._stitcher.image
+        return imagen if (imagen is not None and not imagen.isNull()) else None
 
     def _detener(self):
         if self._raton is not None:
@@ -280,18 +415,38 @@ class ScrollCaptureWindow(QWidget):
             self._velo = None
 
     def _finalizar(self):
+        # enter: lo capturado pasa al editor para anotar antes de decidir
         if self._terminada:
             return
         self._terminada = True
-        # una última toma recoge lo que quedó visible al soltar, por si la
-        # ráfaga de scroll terminó justo antes de la espera
-        self._espera.stop()
-        self._capturar_tramo()
-        self._detener()
-        imagen = self._stitcher.image
+        imagen = self._imagen_capturada()
         self.close()
-        if imagen is not None and not imagen.isNull():
+        if imagen is not None:
             self.finished.emit(imagen)
+        else:
+            self.cancelled.emit()
+
+    def _copiar(self):
+        # ctrl+c: se copia lo capturado y se cierra todo el flujo
+        if self._terminada:
+            return
+        self._terminada = True
+        imagen = self._imagen_capturada()
+        self.close()
+        if imagen is not None:
+            self.copy_requested.emit(imagen)
+        else:
+            self.cancelled.emit()
+
+    def _guardar(self):
+        # ctrl+s: se guarda lo capturado y se cierra todo el flujo
+        if self._terminada:
+            return
+        self._terminada = True
+        imagen = self._imagen_capturada()
+        self.close()
+        if imagen is not None:
+            self.save_requested.emit(imagen)
         else:
             self.cancelled.emit()
 
@@ -308,7 +463,7 @@ class ScrollCaptureWindow(QWidget):
         super().closeEvent(e)
 
 
-def pick_region_and_start(al_terminar, al_cancelar) -> _RegionPicker:
+def pick_region_and_start(al_terminar, al_cancelar, al_copiar, al_guardar) -> _RegionPicker:
     """arranque completo del flujo: selector primero, control después.
 
     devuelve el selector para que quien llama conserve la referencia; sin
@@ -320,6 +475,8 @@ def pick_region_and_start(al_terminar, al_cancelar) -> _RegionPicker:
         ventana = ScrollCaptureWindow(fisica, logica)
         ventana.finished.connect(al_terminar)
         ventana.cancelled.connect(al_cancelar)
+        ventana.copy_requested.connect(al_copiar)
+        ventana.save_requested.connect(al_guardar)
         # la referencia se cuelga del selector para mantenerla viva
         selector._ventana_control = ventana
         ventana.show()
