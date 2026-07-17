@@ -4,6 +4,15 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/). El primer número marca los cambios mayores, el segundo las funciones nuevas y el tercero las correcciones.
 
+## 1.2.6 (2026-07-17)
+
+Mejoras en el editor de la captura con desplazamiento: zoom, recorte y una barra de herramientas que ya no se deforma.
+
+- La imagen se abre ajustada para verse completa. Como una captura larga puede medir miles de píxeles, al abrir el editor la vista se aleja lo necesario para mostrarla entera de un vistazo.
+- Se añaden controles de zoom. Un botón acerca para mirar el detalle y otro aleja; el alejar llega como máximo hasta el ajuste que muestra toda la imagen, ya que no tiene sentido alejarse más allá de eso. El porcentaje actual se muestra entre ambos botones.
+- Se añade la herramienta de recortar. Al activarla aparece un recuadro con tiradores, igual que una selección, que abarca toda la imagen por defecto. Se ajusta arrastrándolo o moviéndolo, y al copiar o guardar la imagen queda recortada a esa zona. Si no se toca, se exporta completa.
+- La barra de herramientas ya no se estira. Al maximizar la ventana, los botones se repartían por todo el ancho; ahora quedan juntos y pegados a la izquierda, a tamaño fijo, con los controles de zoom y recorte a la derecha.
+
 ## 1.2.5 (2026-07-17)
 
 Añade la instalación de actualizaciones desde la propia aplicación, una ventana con el historial de versiones y el número de versión en el ícono de la bandeja.
