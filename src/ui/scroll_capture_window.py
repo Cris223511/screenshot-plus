@@ -1,18 +1,16 @@
 """interfaz de la captura con desplazamiento.
 
-primero un selector marca la zona. después un velo oscurece el resto de la
-pantalla y deja la zona limpia, pero el ratón no interactúa libre con lo de
-abajo: un hook global bloquea los clics (para no meterse por error en la
-ventana de atrás) y solo deja pasar el scroll, que además se reinyecta más
-suave para que el contenido avance despacio y el cosido salga limpio. cada
-giro de rueda captura la franja visible y el cosedor la une a la imagen larga.
+primero un selector marca la zona sobre la ventana que se quiere capturar.
+después, mientras dura la captura, todo queda enjaulado: un velo oscurece
+todos los monitores, los clics y el teclado se bloquean por completo y lo
+único que pasa a la ventana de atrás es el giro de la rueda, que la scrollea
+de verdad. cada giro captura la franja visible y el cosedor la une a la
+imagen larga.
 
-las teclas se escuchan de forma global porque el foco lo tiene la página que
-se scrollea, no esta ventana: esc cancela, enter abre el editor con lo
-capturado, ctrl+c copia y cierra, y ctrl+s guarda y cierra.
+del teclado solo se atienden esc (cancelar), enter (abrir el editor), ctrl+c
+(copiar y cerrar) y ctrl+s (guardar y cerrar); el resto se traga para que no
+haya alt+tab, tecla windows ni forma de irse a otra ventana o monitor.
 """
-
-import ctypes
 
 from pynput import keyboard, mouse
 from PySide6.QtCore import QObject, QRect, QRectF, QTimer, Qt, Signal
@@ -25,24 +23,19 @@ from src.core.scrolling_capture import ScrollStitcher
 from src.i18n.translator import t
 from src.ui.themes.theme_manager import theme
 
-# mensajes de ratón del hook de bajo nivel de windows
+# mensajes del hook de ratón de bajo nivel
 _WM_MOUSEWHEEL = 0x020A
 _WM_MOUSEHWHEEL = 0x020E
 _BOTONES_MOUSE = {0x0201, 0x0202, 0x0204, 0x0205, 0x0207, 0x0208, 0x020B, 0x020C}
-# marca que windows pone a los eventos que inyecta un programa; sirve para
-# reconocer nuestra propia rueda suave y dejarla pasar sin volver a frenarla
-_LLMHF_INJECTED = 0x00000001
-_MOUSEEVENTF_WHEEL = 0x0800
-# proporción de la rueda original que se reinyecta; más bajo, más lento
-_FACTOR_SUAVE = 0.34
 
-
-def _inyectar_rueda(delta: int) -> None:
-    """manda un giro de rueda a la ventana bajo el cursor, más suave."""
-    try:
-        ctypes.windll.user32.mouse_event(_MOUSEEVENTF_WHEEL, 0, 0, int(delta), 0)
-    except Exception:
-        pass
+# mensajes del hook de teclado y códigos de tecla que sí atendemos
+_TECLA_ABAJO = {0x0100, 0x0104}   # WM_KEYDOWN, WM_SYSKEYDOWN
+_TECLA_ARRIBA = {0x0101, 0x0105}  # WM_KEYUP, WM_SYSKEYUP
+_VK_CONTROL = {0x11, 0xA2, 0xA3}
+_VK_ESC = 0x1B
+_VK_ENTER = 0x0D
+_VK_C = 0x43
+_VK_S = 0x53
 
 
 class _RegionPicker(QWidget):
@@ -56,7 +49,11 @@ class _RegionPicker(QWidget):
         self.setAttribute(Qt.WA_DeleteOnClose, True)
         self._imagen = capture.grab_virtual_screen()
         self._dpr = capture.device_pixel_ratio()
-        self.setGeometry(QGuiApplication.primaryScreen().virtualGeometry())
+        # geometría de todo el escritorio virtual; su esquina puede ser
+        # negativa si hay un monitor a la izquierda o arriba del principal, y
+        # esa esquina hay que sumarla luego para acertar las coordenadas
+        self._vg = QGuiApplication.primaryScreen().virtualGeometry()
+        self.setGeometry(self._vg)
         self._origen = None
         self._sel = QRectF()
         self.setCursor(Qt.CrossCursor)
@@ -87,7 +84,13 @@ class _RegionPicker(QWidget):
         sel = self._sel
         self.close()
         if sel.width() >= 30 and sel.height() >= 30:
-            fisico = QRect(round(sel.x() * self._dpr), round(sel.y() * self._dpr),
+            # las coordenadas del arrastre son relativas a esta ventana, que
+            # arranca en la esquina del escritorio virtual; se le suma esa
+            # esquina para tener la posición real en pantalla y recién ahí se
+            # pasa a píxeles físicos, que es lo que lee la captura
+            ax = self._vg.x() + sel.x()
+            ay = self._vg.y() + sel.y()
+            fisico = QRect(round(ax * self._dpr), round(ay * self._dpr),
                            round(sel.width() * self._dpr), round(sel.height() * self._dpr))
             self.region_ready.emit(fisico, sel.toRect())
         else:
@@ -117,13 +120,13 @@ class _RegionPicker(QWidget):
 
 
 class _DimOverlay(QWidget):
-    """velo que oscurece la pantalla alrededor de la zona a capturar.
+    """velo que oscurece todos los monitores alrededor de la zona a capturar.
 
-    la ventana es transparente al ratón (WindowTransparentForInput), así que
-    el scroll reinyectado atraviesa hacia la página de abajo sin depender de
-    una máscara recortada (que se descuadraba con el escalado de windows). la
-    zona queda limpia y solo se oscurece lo de alrededor, como guía visual. de
-    los clics se encarga el hook de la ventana de control, no este velo.
+    la ventana es transparente al ratón (WindowTransparentForInput) para que
+    el giro de la rueda atraviese hacia la ventana de atrás y la scrollee de
+    verdad. de bloquear los clics y el teclado se encargan los hooks de la
+    ventana de control, no este velo. cubre todo el escritorio virtual, así
+    que el oscurecido se ve también en el segundo monitor.
     """
 
     def __init__(self, zona_logica: QRect):
@@ -137,7 +140,7 @@ class _DimOverlay(QWidget):
 
     def paintEvent(self, _):
         pintor = QPainter(self)
-        velo = QColor(0, 0, 0, 100)
+        velo = QColor(0, 0, 0, 120)
         z = QRectF(self._zona)
         # cuatro franjas alrededor de la zona; el centro queda transparente
         pintor.fillRect(QRectF(0, 0, self.width(), z.top()), velo)
@@ -180,13 +183,10 @@ class ScrollCaptureWindow(QWidget):
         self._stitcher = ScrollStitcher()
         self._terminada = False
         self._ctrl = False
-        # cuenta de ruedas suaves que hemos inyectado y aún no han vuelto por
-        # el hook; sirve para reconocer las nuestras sin depender de la marca
-        # de windows y así cerrar cualquier posibilidad de bucle
-        self._rueda_propia = 0
-        # rectángulo físico del panel de control; el hook deja pasar los clics
-        # que caen dentro para que sus botones sigan respondiendo
-        self._rect_control = None
+        # identificador de esta ventana; el hook deja pasar los clics que caen
+        # sobre ella para que sus botones sigan respondiendo. se guarda en
+        # showEvent, cuando la ventana ya tiene su hwnd nativo
+        self._hwnd = 0
 
         # aunque la ventana quedara dentro de la zona elegida, la exclusión
         # evita que salga en los fotogramas; es opaca, así que windows la
@@ -235,10 +235,10 @@ class ScrollCaptureWindow(QWidget):
 
         self._acomodar(region_logica)
 
-        # la rueda y las teclas de cierre se escuchan globales: el foco lo
-        # tiene la página que el usuario scrollea, no esta ventana. el puente
-        # trae cada aviso al hilo de qt, y el temporizador junta ráfagas de
-        # scroll en una sola captura cuando la pantalla asienta
+        # la rueda y las teclas se escuchan globales: el foco lo tiene la
+        # página que el usuario scrollea, no esta ventana. el puente trae cada
+        # aviso al hilo de qt, y el temporizador junta ráfagas de scroll en una
+        # sola captura cuando la pantalla asienta
         self._puente = _InputBridge()
         self._puente.scrolled.connect(self._programar_captura)
         self._puente.finish_key.connect(self._finalizar)
@@ -251,69 +251,60 @@ class ScrollCaptureWindow(QWidget):
         # despacio y no perder tramos si el contenido salta mucho
         self._espera = QTimer(self)
         self._espera.setSingleShot(True)
-        self._espera.setInterval(140)
+        self._espera.setInterval(120)
         self._espera.timeout.connect(self._capturar_tramo)
 
-        # el filtro del ratón bloquea clics y frena el scroll; el del teclado
-        # atiende esc, enter, ctrl+c y ctrl+s
+        # el filtro del ratón bloquea clics y deja pasar solo la rueda; el del
+        # teclado enjaula todo salvo esc, enter, ctrl+c y ctrl+s
         self._raton = mouse.Listener(win32_event_filter=self._filtro_raton)
         self._raton.daemon = True
         self._raton.start()
-        self._teclado = keyboard.Listener(on_press=self._tecla_press,
-                                          on_release=self._tecla_release)
+        self._teclado = keyboard.Listener(win32_event_filter=self._filtro_teclado)
         self._teclado.daemon = True
         self._teclado.start()
 
-        QTimer.singleShot(350, self._capturar_tramo)
+        QTimer.singleShot(300, self._capturar_tramo)
 
     def showEvent(self, e):
         super().showEvent(e)
-        # el panel ya está en su sitio; se guarda su rectángulo físico para
-        # que el hook sepa qué clics dejar pasar (los de sus botones)
+        # ya con la ventana creada se guarda su identificador nativo, que el
+        # hook usa para reconocer los clics de sus propios botones
         try:
-            import win32gui
-            self._rect_control = win32gui.GetWindowRect(int(self.winId()))
+            self._hwnd = int(self.winId())
         except Exception:
-            self._rect_control = None
+            self._hwnd = 0
 
     # ------------------------------------------------------------------ #
     # entrada global (corre en los hilos de pynput; solo emite señales)
 
     def _sobre_control(self, x: int, y: int) -> bool:
-        r = self._rect_control
-        if not r:
+        """True si el punto cae sobre el panel de control, para no bloquear el
+        clic de sus botones. se resuelve preguntando qué ventana hay bajo el
+        punto, más fiable que comparar rectángulos entre monitores con
+        distinto escalado."""
+        if not self._hwnd:
             return False
-        return r[0] <= x < r[2] and r[1] <= y < r[3]
+        try:
+            import win32gui
+            hwnd = win32gui.WindowFromPoint((int(x), int(y)))
+            while hwnd:
+                if hwnd == self._hwnd:
+                    return True
+                hwnd = win32gui.GetParent(hwnd)
+        except Exception:
+            pass
+        return False
 
     def _filtro_raton(self, msg, data):
-        # ojo: suppress_event() bloquea el evento lanzando una excepción que
-        # pynput atrapa arriba, así que nunca debe quedar dentro de un try que
-        # la capture; por eso las lecturas van en su propio try y la supresión
-        # se llama fuera
+        # ojo: suppress_event() bloquea lanzando una excepción que pynput
+        # atrapa arriba, así que nunca debe quedar dentro de un try que la
+        # capture; por eso va siempre como última instrucción
         if msg == _WM_MOUSEWHEEL:
-            # si tenemos una rueda suave pendiente, esta es la nuestra que
-            # vuelve por el hook: se deja pasar una vez y se descuenta. este
-            # contador es la salvaguarda contra el bucle, no depende de windows
-            if self._rueda_propia > 0:
-                self._rueda_propia -= 1
-                return
-            # cualquier otra inyección ajena también se deja pasar sin tocar
-            if data.flags & _LLMHF_INJECTED:
-                return
-            # rueda real del usuario: se reemplaza por una más corta (más
-            # lenta) y solo se inyecta una, con lo que nunca hay más de una en
-            # vuelo y no puede realimentarse
-            try:
-                delta = ctypes.c_short((data.mouseData >> 16) & 0xFFFF).value
-                suave = int(delta * _FACTOR_SUAVE) or (1 if delta > 0 else -1)
-            except Exception:
-                suave = 0
-            if suave:
-                self._rueda_propia += 1
-                _inyectar_rueda(suave)
-                self._puente.scrolled.emit()
-            self._raton.suppress_event()
-        elif msg == _WM_MOUSEHWHEEL:
+            # la rueda vertical se deja pasar tal cual a la ventana de atrás,
+            # que scrollea de verdad; solo avisamos para programar la captura
+            self._puente.scrolled.emit()
+            return
+        if msg == _WM_MOUSEHWHEEL:
             # el scroll horizontal no aporta a la imagen larga; se bloquea
             self._raton.suppress_event()
         elif msg in _BOTONES_MOUSE:
@@ -327,25 +318,26 @@ class ScrollCaptureWindow(QWidget):
             if not sobre:
                 self._raton.suppress_event()
 
-    def _tecla_press(self, tecla):
-        if tecla in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
-            self._ctrl = True
-            return
-        if tecla == keyboard.Key.esc:
-            self._puente.cancel_key.emit()
-            return
-        if tecla == keyboard.Key.enter:
-            self._puente.finish_key.emit()
-            return
-        vk = getattr(tecla, "vk", None)
-        if self._ctrl and vk == 0x43:      # ctrl + c
-            self._puente.copy_key.emit()
-        elif self._ctrl and vk == 0x53:    # ctrl + s
-            self._puente.save_key.emit()
-
-    def _tecla_release(self, tecla):
-        if tecla in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
-            self._ctrl = False
+    def _filtro_teclado(self, msg, data):
+        # todo el teclado queda enjaulado: nada llega a la ventana de atrás ni
+        # a otra app (ni alt+tab, ni la tecla windows). solo reconocemos las
+        # combinaciones útiles y emitimos su señal antes de tragar la tecla
+        vk = getattr(data, "vkCode", None)
+        if vk in _VK_CONTROL:
+            if msg in _TECLA_ABAJO:
+                self._ctrl = True
+            elif msg in _TECLA_ARRIBA:
+                self._ctrl = False
+        elif msg in _TECLA_ABAJO:
+            if vk == _VK_ESC:
+                self._puente.cancel_key.emit()
+            elif vk == _VK_ENTER:
+                self._puente.finish_key.emit()
+            elif vk == _VK_C and self._ctrl:
+                self._puente.copy_key.emit()
+            elif vk == _VK_S and self._ctrl:
+                self._puente.save_key.emit()
+        self._teclado.suppress_event()
 
     # ------------------------------------------------------------------ #
     # captura y vista previa
