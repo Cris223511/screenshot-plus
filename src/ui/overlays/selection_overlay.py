@@ -124,6 +124,11 @@ class _Toolbar(QWidget):
         copiar = boton("copy", t("tool.copy") + "  (Ctrl+C)")
         guardar = boton("save", t("tool.save") + "  (Ctrl+S)")
         cancelar = boton("close", t("tool.cancel") + "  (Esc)")
+        # espaciador al final para que, cuando la barra va embebida y a lo
+        # ancho (el editor de ventana), los botones no se repartan el espacio
+        # sino que queden juntos y pegados a la izquierda, a tamaño fijo. en el
+        # overlay flotante la barra mide su contenido y esto no cambia nada
+        fila.addStretch()
 
         for nombre, b in self._botones.items():
             if nombre != "shape":

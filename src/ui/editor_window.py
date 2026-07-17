@@ -2,16 +2,23 @@
 
 recibe la imagen en una ventana normal (la captura larga puede medir miles
 de píxeles de alto y no cabe en el overlay de pantalla) y ofrece la misma
-barra de herramientas y anotaciones que el editor de capturas. ctrl+c
-copia, ctrl+s guarda, ctrl+z deshace; el resultado sale por señales.
+barra de herramientas y anotaciones que el editor de capturas, más zoom para
+verla completa o acercarse, y una herramienta de recorte. ctrl+c copia,
+ctrl+s guarda, ctrl+z deshace; el resultado sale por señales.
+
+el lienzo se dibuja escalado por el zoom: la imagen y las anotaciones viven
+siempre en coordenadas reales de la imagen, y solo al pintar y al leer el
+ratón se aplica el factor. así el recorte y la exportación trabajan sobre los
+píxeles reales, sin importar cuánto se haya acercado la vista.
 """
 
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+import os
+
+from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (QColor, QFont, QGuiApplication, QIcon, QImage,
                            QKeySequence, QPainter, QPainterPath, QPen)
-from PySide6.QtWidgets import (QLineEdit, QScrollArea, QVBoxLayout, QWidget)
-
-import os
+from PySide6.QtWidgets import (QHBoxLayout, QLabel, QLineEdit, QScrollArea,
+                               QVBoxLayout, QWidget)
 
 from src import APP_NAME
 from src.config import paths
@@ -19,25 +26,41 @@ from src.i18n.translator import t
 from src.ui.overlays import annotation_tools as an
 from src.ui.overlays.selection_overlay import _Toolbar
 from src.ui.themes.theme_manager import theme
+from src.ui.widgets.animated_button import AnimatedButton
+from src.ui.widgets.icons import icon
 
 _LADO_TIRADOR = 8.0
 
 
 class _Canvas(QWidget):
-    """el lienzo: la imagen a tamaño real con las anotaciones encima."""
+    """el lienzo: la imagen (escalada por el zoom) con las anotaciones."""
 
     item_selected = Signal(str, object)
+    zoom_changed = Signal(float)
 
     def __init__(self, imagen: QImage):
         super().__init__()
         self.imagen = imagen
-        self.setFixedSize(imagen.width(), imagen.height())
         self.setMouseTracking(True)
 
         self.items: list[an.Item] = []
         self.rehechos: list[an.Item] = []
         self.activo: an.Item | None = None
         self._arrastre: dict | None = None
+
+        # zoom: 1.0 es tamaño real. el mínimo lo fija la ventana al abrir, para
+        # que no se pueda alejar más allá de "ver todo"; el máximo permite
+        # acercarse a mirar el detalle
+        self.zoom = 1.0
+        self.zoom_min = 0.1
+        self.zoom_max = 4.0
+        self.setFixedSize(imagen.width(), imagen.height())
+
+        # recorte: la zona que quedará al exportar. None significa la imagen
+        # entera. en modo recorte se dibuja con velo y tiradores
+        self.crop_mode = False
+        self.crop_rect: QRectF | None = None
+        self._crop_drag: dict | None = None
 
         # los mismos valores por defecto del editor de capturas
         self.tool = "select"
@@ -49,8 +72,6 @@ class _Canvas(QWidget):
         self.cap_fin = "arrow_filled"
         self.opacidad = 1.0
         self.fuente = QFont("Segoe UI", 18)
-        # opciones del pincel de ocultar y del borrador; no se guardan a
-        # disco, arrancan siempre en su valor por defecto
         self.pixel_modo = an.PIXEL_MODO
         self.pixel_cantidad = an.PIXEL_CANTIDAD
         self.pixel_grosor = an.PIXEL_GROSOR
@@ -59,7 +80,101 @@ class _Canvas(QWidget):
 
         self._editor: QLineEdit | None = None
         self._editor_pos = QPointF()
-        self.setMouseTracking(True)
+
+    # ------------------------------------------------------------------ #
+    # zoom y recorte
+
+    def _img_pos(self, p: QPointF) -> QPointF:
+        """pasa un punto del widget (ya escalado) a coordenadas de la imagen."""
+        z = self.zoom if self.zoom else 1.0
+        return QPointF(p.x() / z, p.y() / z)
+
+    def set_zoom(self, z: float):
+        z = max(self.zoom_min, min(self.zoom_max, z))
+        if abs(z - self.zoom) < 1e-4:
+            return
+        # un texto a medio escribir se confirma antes de reescalar, para no
+        # tener que recolocar su cajita
+        self.commit_texto()
+        self.zoom = z
+        self.setFixedSize(max(1, round(self.imagen.width() * z)),
+                          max(1, round(self.imagen.height() * z)))
+        self.update()
+        self.zoom_changed.emit(z)
+
+    def set_crop_mode(self, activo: bool):
+        self.crop_mode = activo
+        if activo and self.crop_rect is None:
+            # por defecto el recorte abarca toda la imagen; el usuario lo
+            # achica arrastrando sus tiradores
+            self.crop_rect = QRectF(0, 0, self.imagen.width(), self.imagen.height())
+        self.setCursor(Qt.CrossCursor if activo else Qt.ArrowCursor)
+        self.update()
+
+    def _crop_handles(self) -> list[QPointF]:
+        r = self.crop_rect
+        if r is None:
+            return []
+        cx, cy = r.center().x(), r.center().y()
+        return [r.topLeft(), QPointF(cx, r.top()), r.topRight(),
+                QPointF(r.right(), cy), r.bottomRight(),
+                QPointF(cx, r.bottom()), r.bottomLeft(), QPointF(r.left(), cy)]
+
+    def _press_crop(self, punto: QPointF):
+        tol = (_LADO_TIRADOR + 5) / max(self.zoom, 0.01)
+        for i, h in enumerate(self._crop_handles()):
+            if (h - punto).manhattanLength() <= tol:
+                self._crop_drag = {"modo": "tirador", "indice": i}
+                return
+        if self.crop_rect is not None and self.crop_rect.contains(punto):
+            self._crop_drag = {"modo": "mover", "inicio": punto, "rect0": QRectF(self.crop_rect)}
+            return
+        self._crop_drag = {"modo": "crear", "origen": punto}
+        self.crop_rect = QRectF(punto, punto)
+
+    def _move_crop(self, punto: QPointF):
+        if not self._crop_drag:
+            return
+        # el recorte no puede salirse de la imagen
+        punto = QPointF(min(max(punto.x(), 0), self.imagen.width()),
+                        min(max(punto.y(), 0), self.imagen.height()))
+        modo = self._crop_drag["modo"]
+        if modo == "crear":
+            self.crop_rect = QRectF(self._crop_drag["origen"], punto).normalized()
+        elif modo == "mover":
+            delta = punto - self._crop_drag["inicio"]
+            r = QRectF(self._crop_drag["rect0"])
+            r.translate(delta.x(), delta.y())
+            if r.left() < 0:
+                r.moveLeft(0)
+            if r.top() < 0:
+                r.moveTop(0)
+            if r.right() > self.imagen.width():
+                r.moveRight(self.imagen.width())
+            if r.bottom() > self.imagen.height():
+                r.moveBottom(self.imagen.height())
+            self.crop_rect = r
+        else:
+            r = QRectF(self.crop_rect)
+            i = self._crop_drag["indice"]
+            if i in (0, 6, 7):
+                r.setLeft(punto.x())
+            if i in (0, 1, 2):
+                r.setTop(punto.y())
+            if i in (2, 3, 4):
+                r.setRight(punto.x())
+            if i in (4, 5, 6):
+                r.setBottom(punto.y())
+            self.crop_rect = r.normalized()
+        self.update()
+
+    def _fin_crop(self):
+        self._crop_drag = None
+        # un recorte demasiado chico probablemente fue un clic sin querer;
+        # se vuelve a la imagen completa para no dejar algo inservible
+        if self.crop_rect is not None and (self.crop_rect.width() < 10 or self.crop_rect.height() < 10):
+            self.crop_rect = QRectF(0, 0, self.imagen.width(), self.imagen.height())
+        self.update()
 
     # ------------------------------------------------------------------ #
     # texto en línea
@@ -69,15 +184,17 @@ class _Canvas(QWidget):
         editor = QLineEdit(self)
         editor.setPlaceholderText(t("tool.text_placeholder"))
         fuente = self.fuente if existente is None else existente.font
-        editor.setFont(fuente)
+        # la cajita se muestra a la escala del zoom para que calce con lo que
+        # se verá; al confirmar se divide de vuelta para guardar el tamaño real
+        vista = QFont(fuente)
+        vista.setPointSizeF(max(1.0, fuente.pointSizeF() * self.zoom))
+        editor.setFont(vista)
         color = self.color if existente is None else existente.color
-        # sin caja ni fondo, con la fuente dentro del estilo: la hoja de
-        # estilos global fija 13px y pisaría el setFont
         editor.setStyleSheet(
             f"background: transparent; border: none; color: {color.name()};"
-            f" font-family: '{fuente.family()}'; font-size: {fuente.pointSizeF():.0f}pt;"
-            f" font-weight: {'bold' if fuente.bold() else 'normal'};"
-            f" font-style: {'italic' if fuente.italic() else 'normal'};")
+            f" font-family: '{vista.family()}'; font-size: {vista.pointSizeF():.0f}pt;"
+            f" font-weight: {'bold' if vista.bold() else 'normal'};"
+            f" font-style: {'italic' if vista.italic() else 'normal'};")
         if existente is not None:
             editor.setText(existente.text)
             posicion = existente.pos
@@ -86,7 +203,7 @@ class _Canvas(QWidget):
                 self.activo = None
         else:
             posicion = pos
-        editor.move(int(posicion.x()) - 4, int(posicion.y()) - 6)
+        editor.move(int(posicion.x() * self.zoom) - 4, int(posicion.y() * self.zoom) - 6)
         editor.setMinimumWidth(180)
         editor.show()
         editor.setFocus()
@@ -100,6 +217,8 @@ class _Canvas(QWidget):
             return None
         texto = self._editor.text().strip()
         fuente = QFont(self._editor.font())
+        # se deshace la escala del zoom para guardar el tamaño real
+        fuente.setPointSizeF(max(1.0, fuente.pointSizeF() / (self.zoom if self.zoom else 1.0)))
         self._editor.deleteLater()
         self._editor = None
         nuevo = None
@@ -111,8 +230,6 @@ class _Canvas(QWidget):
         return nuevo
 
     def finalizar_texto(self):
-        """esc, enter o un clic afuera confirman el texto y lo dejan
-        seleccionado con la herramienta en selección."""
         nuevo = self.commit_texto()
         if nuevo is not None:
             self.tool = "select"
@@ -125,12 +242,14 @@ class _Canvas(QWidget):
     def mousePressEvent(self, e):
         if e.button() != Qt.LeftButton:
             return
-        punto = QPointF(e.position())
+        punto = self._img_pos(e.position())
+        if self.crop_mode:
+            self._press_crop(punto)
+            self.update()
+            return
         if self._editor is not None:
-            # el clic afuera confirma el texto y lo deja seleccionado
             self.finalizar_texto()
             return
-
         if self.tool == "select":
             self._press_seleccion(punto, bool(e.modifiers() & Qt.AltModifier))
         elif self.tool == "text":
@@ -153,19 +272,14 @@ class _Canvas(QWidget):
                         self._arrastre["aspecto"] = (r.width() / r.height()
                                                      if r.height() > 0 else 0)
                     elif isinstance(self.activo, an.TextItem):
-                        # el texto escala anclado a su estado inicial
                         self._arrastre["texto0"] = (QRectF(self.activo._rect()),
                                                     self.activo.font.pointSizeF())
                     return
         for item in reversed(self.items):
-            # el trazo de ocultar no se toma ni se mueve; se quita con el borrador
             if isinstance(item, an.PixelateItem):
                 continue
             if item.contains(punto):
-                # el texto se selecciona como cualquier elemento; su
-                # contenido se edita con doble clic
                 if alt:
-                    # se duplica el elemento y se arrastra la copia
                     item = an.clonar(item)
                     self.items.append(item)
                     self.rehechos.clear()
@@ -178,7 +292,6 @@ class _Canvas(QWidget):
         self.item_selected.emit("select", None)
 
     def _borrar_en(self, punto: QPointF):
-        """el borrador quita las anotaciones que su círculo toca."""
         radio = max(2.0, self.borrador_grosor / 2)
         circulo = QPainterPath()
         circulo.addEllipse(punto, radio, radio)
@@ -220,21 +333,21 @@ class _Canvas(QWidget):
         elif self.tool == "brush":
             nuevo = an.BrushItem(punto, self.color, self.ancho)
         elif self.tool == "pixelate":
-            # sobre una imagen ya capturada la relación es uno a uno, por
-            # eso el factor de pantalla va en 1; el trazo se pinta como el
-            # pincel y al soltar queda pixelado o difuminado
             nuevo = an.PixelateItem(punto, self.imagen, 1.0, self.pixel_modo,
                                     self.pixel_cantidad, self.pixel_grosor)
         else:
             return
         nuevo.opacity = self.opacidad
         self.items.append(nuevo)
-        # una figura nueva invalida lo que estaba pendiente de rehacer
         self.rehechos.clear()
         self._arrastre = {"modo": "crear", "item": nuevo, "origen": punto}
 
     def mouseMoveEvent(self, e):
-        punto = QPointF(e.position())
+        punto = self._img_pos(e.position())
+        if self.crop_mode:
+            if self._crop_drag:
+                self._move_crop(punto)
+            return
         if self.tool in ("pixelate", "eraser"):
             self._cursor_pincel = punto
             self.update()
@@ -244,10 +357,6 @@ class _Canvas(QWidget):
         if self._arrastre.get("modo") == "borrar":
             self._borrar_en(punto)
             return
-        # los mismos modificadores de los otros editores: shift endereza
-        # y proporciona, alt crece desde el centro
-        # el evento trae los modificadores reales; la caché de la app
-        # no se entera si shift ya venía presionado desde antes del clic
         mods = e.modifiers()
         shift = bool(mods & Qt.ShiftModifier)
         alt = bool(mods & Qt.AltModifier)
@@ -257,7 +366,6 @@ class _Canvas(QWidget):
             origen = self._arrastre.get("origen")
             if isinstance(item, (an.BrushItem, an.PixelateItem)):
                 if shift:
-                    # con shift el trazo sale recto desde donde empezó
                     item.points = [QPointF(item.points[0]), QPointF(punto)]
                 else:
                     item.add_point(punto)
@@ -280,8 +388,6 @@ class _Canvas(QWidget):
                                        2 * origen.y() - destino.y())
                                if alt else QPointF(origen))
         elif modo == "mover":
-            # desplazamiento absoluto desde el punto de agarre; con shift
-            # se pega al eje recto más cercano
             delta = punto - self._arrastre["inicio"]
             if shift:
                 delta = an.restringir_eje(delta)
@@ -312,7 +418,6 @@ class _Canvas(QWidget):
         if self.activo is not None:
             for i, tirador in enumerate(self.activo.handles()):
                 if (tirador - punto).manhattanLength() <= _LADO_TIRADOR + 4:
-                    # la flechita apunta según el tirador
                     self.setCursor(an.cursor_tirador(self.activo, i))
                     return
         for item in reversed(self.items):
@@ -324,6 +429,9 @@ class _Canvas(QWidget):
     def mouseReleaseEvent(self, e):
         if e.button() != Qt.LeftButton:
             return
+        if self.crop_mode:
+            self._fin_crop()
+            return
         if self._arrastre and self._arrastre["modo"] == "crear":
             item = self._arrastre["item"]
             if isinstance(item, an.PixelateItem):
@@ -332,8 +440,6 @@ class _Canvas(QWidget):
                 if item in self.items:
                     self.items.remove(item)
             elif self.tool not in ("brush", "pixelate"):
-                # lo recién dibujado queda seleccionado y la herramienta
-                # pasa a selección, lista para acomodar
                 self.tool = "select"
                 self.activo = item
                 self.item_selected.emit(self._tipo_de(item), item)
@@ -341,7 +447,9 @@ class _Canvas(QWidget):
         self.update()
 
     def mouseDoubleClickEvent(self, e):
-        punto = QPointF(e.position())
+        if self.crop_mode:
+            return
+        punto = self._img_pos(e.position())
         for item in reversed(self.items):
             if isinstance(item, an.TextItem) and item.contains(punto):
                 self.abrir_editor_texto(punto, existente=item)
@@ -358,32 +466,72 @@ class _Canvas(QWidget):
         for item in self.items:
             an.paint_item(pintor, item)
         pintor.end()
+        # si hay un recorte más chico que la imagen, se aplica al resultado
+        if self.crop_rect is not None:
+            r = self.crop_rect.intersected(QRectF(0, 0, salida.width(), salida.height()))
+            recorte = QRect(round(r.x()), round(r.y()), round(r.width()), round(r.height()))
+            if (recorte.width() >= 1 and recorte.height() >= 1
+                    and (recorte.width() < salida.width() or recorte.height() < salida.height())):
+                salida = salida.copy(recorte)
         return salida
 
     def paintEvent(self, _):
+        z = self.zoom
         pintor = QPainter(self)
         pintor.setRenderHint(QPainter.Antialiasing)
+        # la imagen y las anotaciones se pintan en coordenadas reales, con el
+        # lienzo escalado por el zoom
+        pintor.save()
+        pintor.scale(z, z)
         pintor.drawImage(0, 0, self.imagen)
         for item in self.items:
             an.paint_item(pintor, item)
-        if self.activo is not None:
+        if (self.tool in ("pixelate", "eraser") and self._cursor_pincel is not None
+                and not self.crop_mode):
+            grosor = self.pixel_grosor if self.tool == "pixelate" else self.borrador_grosor
+            an.pintar_circulo_pincel(pintor, self._cursor_pincel, grosor)
+        pintor.restore()
+
+        # los tiradores de selección se dibujan a tamaño constante en pantalla,
+        # ya fuera de la escala, para que no se achiquen al alejar el zoom
+        if self.activo is not None and not self.crop_mode:
             tiradores = self.activo.handles()
             pintor.setPen(QPen(QColor(theme.accent()), 1.2))
             pintor.setBrush(QColor("#ffffff"))
             mitad = _LADO_TIRADOR / 2
-            for tirador in tiradores:
-                pintor.drawRect(QRectF(tirador.x() - mitad, tirador.y() - mitad,
+            for tir in tiradores:
+                pintor.drawRect(QRectF(tir.x() * z - mitad, tir.y() * z - mitad,
                                        _LADO_TIRADOR, _LADO_TIRADOR))
             if not tiradores:
                 pluma = QPen(QColor(theme.accent()), 1)
                 pluma.setStyle(Qt.DashLine)
                 pintor.setPen(pluma)
                 pintor.setBrush(Qt.NoBrush)
-                pintor.drawRect(self.activo.bounding())
-        if self.tool in ("pixelate", "eraser") and self._cursor_pincel is not None:
-            grosor = self.pixel_grosor if self.tool == "pixelate" else self.borrador_grosor
-            an.pintar_circulo_pincel(pintor, self._cursor_pincel, grosor)
+                b = self.activo.bounding()
+                pintor.drawRect(QRectF(b.x() * z, b.y() * z, b.width() * z, b.height() * z))
+
+        if self.crop_mode and self.crop_rect is not None:
+            self._pintar_recorte(pintor, z)
         pintor.end()
+
+    def _pintar_recorte(self, pintor: QPainter, z: float):
+        r = self.crop_rect
+        rz = QRectF(r.x() * z, r.y() * z, r.width() * z, r.height() * z)
+        velo = QColor(0, 0, 0, 110)
+        w, h = self.width(), self.height()
+        pintor.fillRect(QRectF(0, 0, w, rz.top()), velo)
+        pintor.fillRect(QRectF(0, rz.bottom(), w, h - rz.bottom()), velo)
+        pintor.fillRect(QRectF(0, rz.top(), rz.left(), rz.height()), velo)
+        pintor.fillRect(QRectF(rz.right(), rz.top(), w - rz.right(), rz.height()), velo)
+        pintor.setPen(QPen(QColor(theme.accent()), 1.6))
+        pintor.setBrush(Qt.NoBrush)
+        pintor.drawRect(rz)
+        pintor.setBrush(QColor("#ffffff"))
+        pintor.setPen(QPen(QColor(theme.accent()), 1.2))
+        mitad = _LADO_TIRADOR / 2
+        for hnd in self._crop_handles():
+            pintor.drawRect(QRectF(hnd.x() * z - mitad, hnd.y() * z - mitad,
+                                   _LADO_TIRADOR, _LADO_TIRADOR))
 
     def leaveEvent(self, e):
         if self._cursor_pincel is not None:
@@ -402,6 +550,7 @@ class EditorWindow(QWidget):
         self.setWindowTitle(f'{t("editor.title")} · {APP_NAME}')
         self.setWindowIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo.jpg"))))
         self.setAttribute(Qt.WA_DeleteOnClose, True)
+        self._ajuste_hecho = False
 
         columna = QVBoxLayout(self)
         columna.setContentsMargins(10, 10, 10, 10)
@@ -409,22 +558,96 @@ class EditorWindow(QWidget):
 
         self._canvas = _Canvas(imagen)
 
-        # la misma barra del editor de capturas, conectada al lienzo
+        # la barra de herramientas va pegada a la izquierda, a su tamaño; los
+        # controles de zoom y recorte quedan a la derecha, y entre ambos un
+        # espaciador se come el ancho sobrante en pantalla completa
         self._barra = _Toolbar(self)
         self._conectar_barra()
-        columna.addWidget(self._barra)
 
-        area = QScrollArea()
-        area.setWidget(self._canvas)
-        area.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
-        columna.addWidget(area)
+        fila_superior = QHBoxLayout()
+        fila_superior.setContentsMargins(0, 0, 0, 0)
+        fila_superior.setSpacing(8)
+        fila_superior.addWidget(self._barra, 0, Qt.AlignTop)
+        fila_superior.addStretch()
+        fila_superior.addLayout(self._controles_zoom())
+        columna.addLayout(fila_superior)
 
-        # la ventana abre a un tamaño cómodo: lo que mida la imagen, con
-        # tope en el 85 por ciento de la pantalla
+        self._area = QScrollArea()
+        self._area.setWidget(self._canvas)
+        self._area.setAlignment(Qt.AlignCenter)
+        columna.addWidget(self._area)
+
+        # la ventana abre a un tamaño cómodo; el zoom se encarga de que la
+        # imagen entre completa dentro de ese espacio
         pantalla = QGuiApplication.primaryScreen().availableGeometry()
-        ancho = min(imagen.width() + 60, int(pantalla.width() * 0.85))
-        alto = min(imagen.height() + 120, int(pantalla.height() * 0.85))
-        self.resize(max(ancho, self._barra.sizeHint().width() + 40), max(alto, 420))
+        ancho = min(1040, int(pantalla.width() * 0.9))
+        alto = min(760, int(pantalla.height() * 0.9))
+        self.resize(max(ancho, self._barra.sizeHint().width() + 220), max(alto, 460))
+
+    def _controles_zoom(self) -> QHBoxLayout:
+        fila = QHBoxLayout()
+        fila.setSpacing(4)
+
+        def boton(nombre_icono: str, tooltip: str, marcable: bool = False) -> AnimatedButton:
+            b = AnimatedButton()
+            b.setIcon(icon(nombre_icono, theme.icon_color()))
+            b.setIconSize(QSize(20, 20))
+            b.setToolTip(tooltip)
+            b.setCheckable(marcable)
+            b.setCursor(Qt.PointingHandCursor)
+            return b
+
+        self._btn_recorte = boton("crop", t("tool.crop"), True)
+        self._btn_recorte.toggled.connect(self._alternar_recorte)
+        fila.addWidget(self._btn_recorte)
+
+        alejar = boton("zoom-out", t("tool.zoom_out"))
+        alejar.clicked.connect(lambda: self._canvas.set_zoom(self._canvas.zoom / 1.25))
+        fila.addWidget(alejar)
+
+        self._lbl_zoom = QLabel("100%")
+        self._lbl_zoom.setObjectName("secundario")
+        self._lbl_zoom.setAlignment(Qt.AlignCenter)
+        self._lbl_zoom.setMinimumWidth(44)
+        fila.addWidget(self._lbl_zoom)
+
+        acercar = boton("zoom-in", t("tool.zoom_in"))
+        acercar.clicked.connect(lambda: self._canvas.set_zoom(self._canvas.zoom * 1.25))
+        fila.addWidget(acercar)
+
+        self._canvas.zoom_changed.connect(
+            lambda z: self._lbl_zoom.setText(f"{round(z * 100)}%"))
+        fila.setAlignment(Qt.AlignTop)
+        return fila
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        # al mostrarse por primera vez, la imagen se ajusta para verse completa
+        if not self._ajuste_hecho:
+            self._ajuste_hecho = True
+            QTimer.singleShot(0, self._ajustar_a_ventana)
+
+    def _ajustar_a_ventana(self):
+        vp = self._area.viewport().size()
+        iw, ih = self._canvas.imagen.width(), self._canvas.imagen.height()
+        if iw <= 0 or ih <= 0:
+            return
+        margen = 8
+        ajuste = min((vp.width() - margen) / iw, (vp.height() - margen) / ih)
+        # al abrir no se agranda más allá del tamaño real; y ese ajuste pasa a
+        # ser el zoom mínimo, o sea el "todo visible": no se puede alejar más
+        ajuste = min(ajuste, 1.0)
+        self._canvas.zoom_min = max(0.05, ajuste)
+        # se fuerza el reescalado aunque coincida con el zoom actual
+        self._canvas.zoom = 0.0
+        self._canvas.set_zoom(ajuste)
+
+    def _alternar_recorte(self, activo: bool):
+        self._canvas.set_crop_mode(activo)
+
+    def _desactivar_recorte(self):
+        if self._btn_recorte.isChecked():
+            self._btn_recorte.setChecked(False)
 
     def _conectar_barra(self):
         b, c = self._barra, self._canvas
@@ -453,13 +676,14 @@ class EditorWindow(QWidget):
         c.item_selected.connect(self._al_seleccionar)
 
     def _al_seleccionar(self, tipo: str, item):
-        """al quedar algo seleccionado (a mano o tras dibujarlo), la barra
-        marca la herramienta de selección y carga sus propiedades."""
         if item is not None and self._canvas.tool == "select":
             self._barra.activate("select")
         self._barra.configure(tipo, item)
 
     def _cambiar_tool(self, nombre: str):
+        # elegir una herramienta de dibujo apaga el recorte, para que el clic
+        # vuelva a dibujar y no siga ajustando el recuadro
+        self._desactivar_recorte()
         self._canvas.commit_texto()
         self._canvas.tool = nombre
         if nombre != "select":
@@ -471,8 +695,6 @@ class EditorWindow(QWidget):
         self._canvas.update()
 
     def _aplicar(self, atributo_defecto: str, atributo_item: str):
-        """fabrica el manejador de una propiedad: actualiza el valor por
-        defecto del lienzo y, si hay un elemento tomado, también el suyo."""
         def manejar(valor):
             c = self._canvas
             setattr(c, atributo_defecto, valor if not isinstance(valor, QColor) else QColor(valor))
@@ -487,8 +709,6 @@ class EditorWindow(QWidget):
         return manejar
 
     def _aplicar_pixel(self, campo: str, valor):
-        """las opciones del pincel de ocultar quedan de base para el próximo
-        trazo de esta sesión; no se guardan a disco."""
         c = self._canvas
         if campo == "mode":
             c.pixel_modo = valor
@@ -554,15 +774,14 @@ class EditorWindow(QWidget):
         c.update()
 
     def _pegar_imagen(self):
-        """ctrl+v pega la imagen del portapapeles sobre el lienzo."""
         c = self._canvas
         imagen = QGuiApplication.clipboard().image()
         if imagen.isNull():
             return
-        factor = min(1.0, c.width() * 0.6 / max(1, imagen.width()),
-                     c.height() * 0.6 / max(1, imagen.height()))
+        factor = min(1.0, c.imagen.width() * 0.6 / max(1, imagen.width()),
+                     c.imagen.height() * 0.6 / max(1, imagen.height()))
         ancho, alto = imagen.width() * factor, imagen.height() * factor
-        nuevo = an.ImageItem(QRectF((c.width() - ancho) / 2, (c.height() - alto) / 2,
+        nuevo = an.ImageItem(QRectF((c.imagen.width() - ancho) / 2, (c.imagen.height() - alto) / 2,
                                     ancho, alto), imagen)
         nuevo.opacity = c.opacidad
         c.items.append(nuevo)
@@ -576,8 +795,6 @@ class EditorWindow(QWidget):
         self.close()
 
     def _guardar(self):
-        # el diálogo de guardado se abre encima sin cerrar el editor: al
-        # confirmar o cancelar, la captura queda abierta para seguir
         imagen = self._canvas.exportar()
         self.save_requested.emit(imagen)
 
@@ -597,10 +814,11 @@ class EditorWindow(QWidget):
             self._canvas.activo = None
             self._canvas.update()
         elif e.key() == Qt.Key_Escape:
-            # con un texto a medio escribir, esc lo confirma y selecciona;
-            # sin nada pendiente, cierra el editor
             if self._canvas._editor is not None:
                 self._canvas.finalizar_texto()
+            elif self._btn_recorte.isChecked():
+                # esc sale del modo recorte antes que del editor
+                self._btn_recorte.setChecked(False)
             else:
                 self.close()
         else:
