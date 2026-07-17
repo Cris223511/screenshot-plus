@@ -21,6 +21,7 @@ from src.ui.dialogs.about_dialog import AboutDialog
 from src.ui.dialogs.language_dialog import LanguageDialog
 from src.ui.dialogs.manual_dialog import ManualDialog
 from src.ui.dialogs.settings_dialog import SettingsDialog
+from src.ui.dialogs.versions_dialog import VersionsDialog
 from src.ui.editor_window import EditorWindow
 from src.ui.main_window import MainWindow
 from src.ui.notifications import notify
@@ -91,6 +92,7 @@ class ScreenshotApp(QObject):
         w.language_requested.connect(lambda: LanguageDialog(self.window).exec())
         w.about_requested.connect(lambda: AboutDialog(self.window).exec())
         w.updates_requested.connect(self._comprobar_actualizaciones)
+        w.versions_requested.connect(lambda: VersionsDialog(self.window).exec())
         w.quit_requested.connect(self.salir)
         w.minimized_changed.connect(self._sincronizar_minimizado)
 

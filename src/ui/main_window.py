@@ -38,6 +38,7 @@ class MainWindow(QWidget):
     manual_requested = Signal()
     language_requested = Signal()
     updates_requested = Signal()
+    versions_requested = Signal()
     about_requested = Signal()
     quit_requested = Signal()
     # avisa cuando el panel pasa a minimizado o vuelve, para que la app
@@ -140,6 +141,7 @@ class MainWindow(QWidget):
         menu.addAction(icon("globe", color), t("menu.language"), self.language_requested.emit)
         menu.addSeparator()
         menu.addAction(icon("refresh", color), t("menu.updates"), self.updates_requested.emit)
+        menu.addAction(icon("history", color), t("menu.versions"), self.versions_requested.emit)
         menu.addAction(icon("github", color), t("menu.repo"), lambda: webbrowser.open(APP_REPO))
         menu.addAction(icon("info", color), t("menu.about"), self.about_requested.emit)
         menu.addSeparator()

@@ -11,7 +11,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
-from src import APP_NAME
+from src import APP_NAME, APP_VERSION
 from src.config import paths
 from src.i18n.translator import t, translator
 
@@ -24,7 +24,9 @@ class TrayIcon(QSystemTrayIcon):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo.jpg"))))
-        self.setToolTip(APP_NAME)
+        # el tooltip lleva el número de versión, así se ve de un vistazo cuál
+        # tienes instalada al pasar el cursor por el ícono de la bandeja
+        self.setToolTip(f"{APP_NAME} {APP_VERSION}")
 
         self._menu = QMenu()
         self.setContextMenu(self._menu)
