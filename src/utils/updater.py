@@ -108,7 +108,7 @@ class UpdateChecker(QObject):
             nuevo = actual + ".new"
 
             peticion = urllib.request.Request(url_exe, headers={"User-Agent": "screenshot-plus"})
-            with urllib.request.urlopen(peticion, timeout=30) as respuesta:
+            with urllib.request.urlopen(peticion, timeout=60) as respuesta:
                 total = int(respuesta.headers.get("Content-Length", 0))
                 leido = 0
                 with open(nuevo, "wb") as destino:
@@ -121,22 +121,47 @@ class UpdateChecker(QObject):
                         if total:
                             self.progress.emit(int(leido * 100 / total))
 
-            # una descarga cortada dejaría un exe inservible; se exige un
-            # tamaño mínimo razonable antes de dar el cambio por bueno
-            if os.path.getsize(nuevo) < 1_000_000:
-                os.remove(nuevo)
+            # verificación de integridad antes de tocar el ejecutable actual.
+            # una descarga cortada (conexión caída, antivirus) deja un exe
+            # truncado que arranca pero no carga sus librerías; para descartarlo
+            # se exige que el archivo esté completo (que su tamaño coincida con
+            # el anunciado) y que empiece por la firma MZ de un ejecutable de
+            # windows. si algo no cuadra, no se instala nada
+            tam = os.path.getsize(nuevo)
+            with open(nuevo, "rb") as f:
+                firma = f.read(2)
+            completo = (tam == total) if total else (tam >= 5_000_000)
+            if not completo or firma != b"MZ":
+                try:
+                    os.remove(nuevo)
+                except OSError:
+                    pass
                 self.install_failed.emit()
                 return
 
             self._lanzar_cambio(actual, nuevo)
             self.install_ready.emit()
         except Exception:
+            # ante cualquier fallo se borra la descarga a medias para no dejar
+            # basura ni un exe truncado rondando
+            try:
+                os.remove(os.path.abspath(sys.executable) + ".new")
+            except OSError:
+                pass
             self.install_failed.emit()
 
     @staticmethod
     def _lanzar_cambio(actual: str, nuevo: str):
         """deja corriendo un script que espera a que la app cierre, pone el
-        exe nuevo en lugar del viejo y vuelve a abrir la app."""
+        exe nuevo en lugar del viejo y vuelve a abrir la app.
+
+        los márgenes de tiempo importan: si se relanza el exe recién cambiado
+        demasiado pronto, su primer arranque puede fallar al cargar sus
+        librerías porque windows o el antivirus todavía están asentando el
+        archivo. por eso se espera un poco tras cerrar el viejo, se reintenta
+        el reemplazo por si el archivo sigue tomado un instante, y se deja otro
+        margen antes de abrir la versión nueva.
+        """
         pid = os.getpid()
         script = (
             "@echo off\r\n"
@@ -144,14 +169,23 @@ class UpdateChecker(QObject):
             f'set "PID={pid}"\r\n'
             f'set "NUEVO={nuevo}"\r\n'
             f'set "VIEJO={actual}"\r\n'
+            "set N=0\r\n"
             ":esperar\r\n"
             'tasklist /fi "PID eq %PID%" 2>nul | find "%PID%" >nul\r\n'
             "if not errorlevel 1 (\r\n"
             "  ping -n 2 127.0.0.1 >nul\r\n"
             "  goto esperar\r\n"
             ")\r\n"
+            "ping -n 4 127.0.0.1 >nul\r\n"
+            ":mover\r\n"
+            'move /y "%NUEVO%" "%VIEJO%" >nul 2>&1\r\n'
+            'if not exist "%NUEVO%" goto movido\r\n'
+            "set /a N+=1\r\n"
+            "if %N% geq 12 goto movido\r\n"
             "ping -n 2 127.0.0.1 >nul\r\n"
-            'move /y "%NUEVO%" "%VIEJO%" >nul\r\n'
+            "goto mover\r\n"
+            ":movido\r\n"
+            "ping -n 5 127.0.0.1 >nul\r\n"
             'start "" "%VIEJO%"\r\n'
             'del "%~f0"\r\n'
         )
