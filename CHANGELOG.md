@@ -4,6 +4,16 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/). El primer número marca los cambios mayores, el segundo las funciones nuevas y el tercero las correcciones.
 
+## 1.2.4 (2026-07-16)
+
+Rehace por dentro la captura con desplazamiento, que en la versión anterior seguía sin funcionar de forma fiable, y corrige los botones de la ventana de control.
+
+- Se quitó el scroll frenado. La aplicación reemplazaba cada giro de rueda por uno más corto para que el contenido avanzara despacio, y esa reinyección podía repetirse en cadena y cargar el procesador. Ahora el giro de la rueda pasa directo a la ventana de atrás y la desplaza a su velocidad normal, sin intermediarios.
+- Mientras la captura está activa, la entrada queda confinada a la tarea. Los clics y el teclado se bloquean por completo, de modo que no es posible cambiar de pestaña, pasar a otra ventana o a otro monitor por accidente. Solo responden las teclas necesarias: Esc para cancelar, Enter para abrir el editor, Ctrl + C para copiar y cerrar, y Ctrl + S para guardar y cerrar. Lo único que llega a la ventana de atrás es el giro de la rueda, que es lo que permite grabar el desplazamiento.
+- El velo de oscurecimiento cubre ahora todos los monitores, no solo el principal, así que el resto de la pantalla queda atenuado también en una configuración de dos pantallas.
+- Se corrigió la vista previa, que mostraba una imagen equivocada u oscura en equipos con dos monitores. El cálculo de la zona a capturar no tenía en cuenta la posición del escritorio virtual, por lo que se leía una región distinta de la seleccionada. Ahora la vista previa muestra exactamente lo que se eligió.
+- Los botones Finalizar y Cancelar de la ventana de control vuelven a responder al clic. El bloqueo de clics identificaba la ventana propia comparando coordenadas entre monitores con distinto escalado, lo que fallaba; ahora se reconoce de forma directa la ventana que hay bajo el cursor.
+
 ## 1.2.3 (2026-07-16)
 
 Correcciones sobre la captura con desplazamiento, que arrastraba varios fallos serios, y un cierre más corto para lo capturado.
