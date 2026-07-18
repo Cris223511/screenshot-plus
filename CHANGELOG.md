@@ -4,6 +4,12 @@ Este documento recoge los cambios importantes de Screenshot Plus, de la versión
 
 El formato sigue la convención de [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [semántico](https://semver.org/lang/es/). El primer número marca los cambios mayores, el segundo las funciones nuevas y el tercero las correcciones.
 
+## 1.2.8 (2026-07-17)
+
+Corrige que la aplicación mostrara su panel al arrancar con Windows, en lugar de quedarse oculta en la bandeja.
+
+- Al encender el equipo, la aplicación debía iniciarse en segundo plano y quedar en la bandeja del sistema, como si se hubiera cerrado con la X pero sin dejar de ejecutarse. En cambio, el panel aparecía. La causa estaba en que el arranque automático se registra por dos vías (la clave del registro y un acceso directo en la carpeta de Inicio) y ambas se disparan al encender: la primera copia arrancaba oculta, pero la segunda, al detectar que ya había una en marcha, le pedía mostrar el panel. Ahora ese aviso distingue el arranque en segundo plano de un doble clic normal, de modo que al encender el equipo la aplicación permanece oculta en la bandeja y solo un doble clic sobre el ejecutable trae el panel al frente.
+
 ## 1.2.7 (2026-07-17)
 
 Refuerza la instalación de actualizaciones para que no pueda dejar un ejecutable a medias, y equipara por completo el editor de la captura con desplazamiento con el de la captura de región, además de sumarle tema, cursores y una herramienta de mano.

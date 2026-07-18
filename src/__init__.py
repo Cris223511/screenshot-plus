@@ -2,7 +2,7 @@
 # de acerca de, el updater y el build lean siempre la misma información
 
 APP_NAME = "Screenshot Plus"
-APP_VERSION = "1.2.7"
+APP_VERSION = "1.2.8"
 APP_AUTHOR = "Cris223511"
 APP_YEAR = "2026"
 APP_REPO = "https://github.com/Cris223511/screenshot-plus"
