@@ -687,7 +687,7 @@ class EditorWindow(QWidget):
         self.setObjectName("ventanaEditor")
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setWindowTitle(f'{t("editor.title")} · {APP_NAME}')
-        self.setWindowIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo.jpg"))))
+        self.setWindowIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo-circle.png"))))
         self.setAttribute(Qt.WA_DeleteOnClose, True)
         self._ajuste_hecho = False
 

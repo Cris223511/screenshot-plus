@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo/logo.jpg" alt="Screenshot Plus logo" width="140">
+  <img src="assets/logo/logo.png" alt="Screenshot Plus logo" width="140">
 </p>
 
 <h1 align="center">Screenshot Plus</h1>

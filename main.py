@@ -54,7 +54,7 @@ def main() -> int:
 
     aplicacion = QApplication(sys.argv)
     aplicacion.setApplicationName(APP_NAME)
-    aplicacion.setWindowIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo.jpg"))))
+    aplicacion.setWindowIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo-circle.png"))))
     # con la app viva en la bandeja, cerrar ventanas no debe terminarla
     aplicacion.setQuitOnLastWindowClosed(False)
 

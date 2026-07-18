@@ -17,27 +17,54 @@ from src.config import paths
 _cache: dict[tuple, QIcon] = {}
 
 
-def rounded_logo(lado: int) -> QPixmap:
-    """el logo recortado en un cuadrado de esquinas redondeadas.
+def _pixmap_logo(archivo: str, lado: int, radio: float | None = None) -> QPixmap:
+    """el logo escalado a un cuadrado de `lado` píxeles.
 
-    lo usan el panel principal, el acerca de y el manual, para que la
-    imagen se integre igual en todos lados, sin marcos duros.
+    se dibuja al doble de resolución para que se vea nítido en pantallas con
+    escalado. con un radio se recorta en esquinas redondeadas, y sin él se
+    respeta la forma original del archivo, que es lo que necesita el logo
+    circular: ya viene recortado y con su fondo transparente.
     """
-    original = QPixmap(paths.resource_path(os.path.join("assets", "logo", "logo.jpg")))
-    escalado = original.scaled(lado * 2, lado * 2, Qt.KeepAspectRatioByExpanding,
-                               Qt.SmoothTransformation)
-    salida = QPixmap(lado * 2, lado * 2)
+    original = QPixmap(paths.resource_path(os.path.join("assets", "logo", archivo)))
+    tam = lado * 2
+    salida = QPixmap(tam, tam)
     salida.fill(Qt.transparent)
     pintor = QPainter(salida)
     pintor.setRenderHint(QPainter.Antialiasing)
-    from PySide6.QtGui import QPainterPath
-    mascara = QPainterPath()
-    mascara.addRoundedRect(QRectF(0, 0, lado * 2, lado * 2), lado * 0.55, lado * 0.55)
-    pintor.setClipPath(mascara)
-    pintor.drawPixmap(0, 0, escalado)
+    pintor.setRenderHint(QPainter.SmoothPixmapTransform)
+    if radio is None:
+        escalado = original.scaled(tam, tam, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pintor.drawPixmap((tam - escalado.width()) // 2, (tam - escalado.height()) // 2, escalado)
+    else:
+        escalado = original.scaled(tam, tam, Qt.KeepAspectRatioByExpanding,
+                                   Qt.SmoothTransformation)
+        from PySide6.QtGui import QPainterPath
+        mascara = QPainterPath()
+        mascara.addRoundedRect(QRectF(0, 0, tam, tam), tam * radio, tam * radio)
+        pintor.setClipPath(mascara)
+        pintor.drawPixmap(0, 0, escalado)
     pintor.end()
     salida.setDevicePixelRatio(2.0)
     return salida
+
+
+def rounded_logo(lado: int) -> QPixmap:
+    """el logo circular, que es el que se ve en toda la aplicación.
+
+    lo usan el acerca de, el manual y la ventana de versiones, además de los
+    íconos de ventana y de la bandeja, para que la identidad sea la misma en
+    todos lados.
+    """
+    return _pixmap_logo("logo-circle.png", lado)
+
+
+def toolbar_logo(lado: int) -> QPixmap:
+    """el logo completo, reservado a la barra del panel principal.
+
+    ahí hay sitio para la versión cuadrada, que se recorta con esquinas
+    redondeadas para acompañar al botón vecino sin puntas duras.
+    """
+    return _pixmap_logo("logo.png", lado, radio=0.28)
 
 
 def icon(nombre: str, color: str, tamano: int = 20) -> QIcon:

@@ -25,7 +25,7 @@ from src.ui.widgets.animated_button import AnimatedButton
 from src.ui.widgets.icons import icon
 
 
-from src.ui.widgets.icons import rounded_logo as _logo_redondeado
+from src.ui.widgets.icons import toolbar_logo as _logo_barra
 
 
 class MainWindow(QWidget):
@@ -54,7 +54,7 @@ class MainWindow(QWidget):
         super().__init__(None, banderas)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowTitle(APP_NAME)
-        self.setWindowIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo.jpg"))))
+        self.setWindowIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo-circle.png"))))
         self._arrastre: QPoint | None = None
         self._primera_vez = True
 
@@ -62,9 +62,11 @@ class MainWindow(QWidget):
         fila.setContentsMargins(12, 9, 10, 9)
         fila.setSpacing(4)
 
-        # el logo con la misma altura que el botón de al lado, ya sin puntas
+        # el logo completo, con la misma altura que el botón de al lado y sin
+        # puntas duras; es el único sitio de la app donde va esta versión, el
+        # resto usa el logo circular
         logo = QLabel()
-        logo.setPixmap(_logo_redondeado(34))
+        logo.setPixmap(_logo_barra(34))
         fila.addWidget(logo)
         fila.addSpacing(6)
 

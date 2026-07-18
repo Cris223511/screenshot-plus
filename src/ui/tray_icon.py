@@ -23,7 +23,7 @@ class TrayIcon(QSystemTrayIcon):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo.jpg"))))
+        self.setIcon(QIcon(paths.resource_path(os.path.join("assets", "logo", "logo-circle.png"))))
         # el tooltip lleva el número de versión, así se ve de un vistazo cuál
         # tienes instalada al pasar el cursor por el ícono de la bandeja
         self.setToolTip(f"{APP_NAME} {APP_VERSION}")

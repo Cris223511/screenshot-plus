@@ -12,7 +12,7 @@ echo [1/3] dependencias de empaquetado...
 pip install pyinstaller >nul 2>&1
 
 echo [2/3] el logo se convierte al formato de icono de windows...
-python -c "from PIL import Image; img = Image.open('assets/logo/logo.jpg'); img.save('assets/logo/logo.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+python -c "from PIL import Image; img = Image.open('assets/logo/logo-circle.png'); img.save('assets/logo/logo.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
 if errorlevel 1 (
     echo no se pudo convertir el logo; revisa que Pillow este instalado
     exit /b 1
